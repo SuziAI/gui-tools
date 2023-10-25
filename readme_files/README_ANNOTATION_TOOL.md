@@ -94,7 +94,7 @@ In order to represent the blanks dividing the piece into two stanzas, create emp
 
 After deleting, creating or marking segmentation boxes, the correct reading order for the later annotation step has to
 be ensured. This is done using the button `Infer Box Order and Column Breaks`. If this is not done, the
-\annotationtool will randomly jump between the boxes in the `Annotation` mode.
+tool will randomly jump between the boxes in the `Annotation` mode.
 
 ### Annotating Text
 
@@ -118,7 +118,7 @@ marked with a thicker border in the `Canvas Window`.
 Annotating each box one after one is a tiresome process. Now, we annotate the preface by selecting the type
 `Preface`. Instead of annotating each of the 11 boxes manually, use the quick fill function.
 
-<img src="annotation_tool_tutorial/20.png" width="400">
+<img src="annotation_tool_tutorial/20.png">
 
 In the quick fill textbox, paste the string "丙辰冬自無錫歸作此寓意". Then, annotate the mode and lyrics.
 
@@ -137,7 +137,7 @@ is not *Gou* ![](../res/suzipu_notation/gou.png), but instead a misprint of *He*
 Annotate as such, and exclude the box from the
 image dataset by marking the checkbox marked in red.
 
-<img src="annotation_tool_tutorial/22_2.png" width="400">
+<img src="annotation_tool_tutorial/22_2.png">
 
 Also for *suzipu* notation, quick fill can be used. Each cell is separated using the vertical bar character 
 |", and the contents of each cell are up to two characters as explained in the paper.
@@ -151,7 +151,7 @@ currently contains no mode. Since we already have annotated the `Title` informat
 *Xianlüdiao* 仙吕调, we can quickly infer the mode by clicking the button `Infer Mode from Segmentation Boxes` marked
 in blue. Alternatively, we can directly click on the mode selector, ...
 
-<img src="annotation_tool_tutorial/24.png" width="400">
+<img src="annotation_tool_tutorial/24.png">
 
 ... and choose the mode from the list, ...
 
@@ -159,10 +159,10 @@ in blue. Alternatively, we can directly click on the mode selector, ...
 
 ... or click on the `Custom Mode Picker` button to create a custom mode, ...
 
-<img src="annotation_tool_tutorial/26.png" width="400">
+<img src="annotation_tool_tutorial/26.png">
 
 ... so we have the possibility to choose from all 84 modes, instead of the 30 modes in the list, by choosing one out of
-12 \lvlv corresponding to \Gong, and one out of the 7 final notes.
+12 *lülü* corresponding to *Gong* 宫, and one out of the 7 final notes.
 
 ### Statistical Information
 

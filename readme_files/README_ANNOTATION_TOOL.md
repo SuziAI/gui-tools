@@ -13,7 +13,7 @@ file `tutorial/01_geximeiling.json` is the result of this tutorial.
 
 ### Choosing the Correct Paths
 
-<img src="annotation_tool_tutorial/1.png" width="60">
+<img src="annotation_tool_tutorial/1.png" width="200">
 
 First, the correct paths must be chosen. In this tutorial, we are going to use the path `./tutorial` in the
 project root directory for both the image directory and the output directory, where everything needed for the tutorial

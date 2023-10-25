@@ -1,0 +1,13 @@
+src/HRCenterNet
+src/HRRegionNet
+__pycache__
+segmentations
+test
+version_1
+version_1_extracted
+version_2
+version_2_extracted
+.idea
+corpus/*.txt
+ignore/*
+output_results

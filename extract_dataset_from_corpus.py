@@ -115,11 +115,13 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="SegmentationEditor")
+    parser = argparse.ArgumentParser(description="Suzipu Annotated OMR Dataset Export Script.")
 
     parser.add_argument("--corpus_dir", required=True, default=None,
-                        help="Path to the folder which contains the corpus files (JSON format).")
+                        help="Path to the folder which contains the corpus files (JSON format). The folder is checked "
+                             "recursively for any JSON files placed inside this folder or subfolders.")
     parser.add_argument("--output_dir", required=True, default=None,
-                        help="Path to the output folder to which the dataset is saved.")
+                        help="Path to the output folder to which the dataset is saved. If it doesn't exist, the script "
+                             "will try to create the folder.")
 
     extract_dataset_from_corpus(parser.parse_args().corpus_dir, parser.parse_args().output_dir)

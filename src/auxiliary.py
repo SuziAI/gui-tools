@@ -13,6 +13,16 @@ from src.suzipu import SuzipuMelodySymbol, suzipu_to_info, SuzipuAdditionalSymbo
     NotationType
 
 
+def get_folder_contents(path, only_images=False):
+    try:
+        l = []
+        for file_name in sorted(os.listdir(path)):
+            if only_images and os.path.splitext(file_name)[-1] in [".png", ".jpeg", ".jpg", ".tiff", ".tif"]:
+                l.append(os.path.join(path, file_name))
+        return l
+    except Exception as e:
+        print(f"Could not read files from directory {path}. {e}")
+
 def pil_to_cv(pil_image):
     open_cv_image = np.array(pil_image)
     return open_cv_image[:, :, ::-1].copy()

@@ -1,5 +1,4 @@
-src/HRCenterNet
-src/HRRegionNet
+weights/*.*
 __pycache__
 segmentations
 test
@@ -11,3 +10,4 @@ version_2_extracted
 corpus/*.txt
 ignore/*
 output_results
+omr_dataset

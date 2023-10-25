@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import PIL
-import chinese_converter
 import cv2
 import os
 
@@ -15,21 +14,20 @@ from tkinter import filedialog, messagebox
 from tkinter.filedialog import asksaveasfilename
 from tkinter.messagebox import showerror
 
-
-import music21
-from PIL import Image, ImageTk
+from PIL import ImageTk
+from PIL import Image
 
 from src.auxiliary import ListCircle, BoxesWithType, is_point_in_rectangle, SetInt, SelectionMode, Colors, BoxProperty, \
     ProgramState, box_property_to_color, get_image_from_box_fixed_size, open_file_as_tk_image, is_rectangle_big_enough, \
-    state_to_json
+    state_to_json, get_folder_contents
 from src.modes import GongdiaoModeList
 from src.config import GO_INTO_ANNOTATION_MODE_IMAGE, INVALID_MODE_IMAGE
 from src.widgets_auxiliary import exec_path_select_window, on_closing, IncrementDecrementFrame, PreviousNextFrame, \
-    SelectionFrame, SaveLoadFrame, DisplayNotesFrame, AdditionalInfoFrame
+    SelectionFrame, SaveLoadFrame, AdditionalInfoFrame
 from src.widgets_annotation import AnnotationFrame
 from src.hr_segmentation_adapter import predict_boxes
-from src.suzipu import Symbol, suzipu_to_info
-from src.notes_to_image import notation_to_jianpu, Fingering, notation_to_western, NotationResources, \
+from src.suzipu import Symbol
+from src.notes_to_image import notation_to_jianpu, notation_to_western, NotationResources, \
     construct_metadata_image, vertical_composition, add_border, write_to_musicxml
 
 
@@ -131,14 +129,8 @@ class MainWindow:
         self.initialize(program_state)
 
     def initialize(self, program_state):
-        def get_folder_contents(path):
-            try:
-                return [os.path.join(path, file) for file in sorted(os.listdir(path))]
-            except Exception as e:
-                print(f"Could not read files from directory {path}. {e}")
-
         self.program_state = program_state
-        self.image_name_circle = ListCircle(get_folder_contents(self.images_dir))
+        self.image_name_circle = ListCircle(get_folder_contents(self.images_dir, only_images=True))
         self.must_be_changed = False
         self.number_of_pages.set(self.program_state.number_of_pages)
 
@@ -828,7 +820,16 @@ if __name__ == "__main__":
 
     program_state = ProgramState()
 
-    weights_path = "./src/HRCenterNet/weights/HRCenterNet.pth.tar"
+    weights_path = "./weights/HRCenterNet.pth.tar"
+
+    if not os.path.isfile(weights_path):
+        showerror("Error", "'HRCenterNet.pth.tar' could not be found. Please download the file 'HRCenterNet.pth.tar' and put it into the folder 'weights'. Abort.")
+        exit(-1)
+
+    if len(get_folder_contents(images_dir, only_images=True)) == 0:  # no images in folder!
+        showerror("Error", "The selected directory 'images_dir' and subdirectories do not contain any image files (PNG, TIFF, JPEG)! Abort.")
+        exit(-1)
+
     main_window = MainWindow(images_dir, output_dir, program_state, weights_path)
     if images_dir and output_dir and weights_path:
         main_window.exec()

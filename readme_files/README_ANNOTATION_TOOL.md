@@ -11,6 +11,41 @@ In this short tutorial, the goal is to annotate Jiang Kui's piece *Geximeiling* 
 *Baishidaoren Gequ* 白石道人歌曲. All the necessary image material is found in the folder `tutorial`, and the
 file `tutorial/01_geximeiling.json` is the result of this tutorial.
 
+## Table of Contents
+0. [Preparing the Environment](#preparing-the-environment)
+1. [Choosing the Correct Paths](#choosing-the-correct-paths)
+2. [Creating Segmentation Boxes](#creating-segmentation-boxes)
+3. [Marking Segmentation Boxes](#marking-segmentation-boxes)
+4. [Annotating Text](#annotating-text)
+5. [Annotating *Suzipu*](#annotating-suzipu)
+6. [Mode Information](#mode-information)
+7. [Statistical Information](#statistical-information)
+8. [Notational Information](#notational-information)
+9. [Export Functions](#export-functions)
+10. [Extract OMR Dataset from Corpus](#extract-omr-dataset-from-corpus)
+
+### Preparing the Environment
+
+1. Make sure that `Python 3.10` is installed with the `tkinter` library. Under Windows `tkinter` should be
+provided by default. See also: [Ubuntu install](https://www.pythonguis.com/installation/install-tkinter-linux/),
+[MacOS install](https://www.pythonguis.com/installation/install-tkinter-mac/).
+2. Install the requirements from [requirements.txt](requirements.txt) using `pip`. This may be platform dependent, e.g.,
+   under Ubuntu this can be achieved with the command `python3 -m pip install -r requirements.txt`.
+3. In order to use the annotation tool, the segmentation algorithm's weight file `HRCenterNet.pth.tar` must
+   be downloaded:
+   [See the links provided in HRCenterNet's README](https://github.com/Tverous/HRCenterNet#download-the-dataset-and-the-pretrained-weight).
+4. Furthermore, the downloaded weight file `HRCenterNet.pth.tar` must be moved to the folder `weights` in the repository's
+   root folder.
+
+
+For starting the annotation tool, follow these steps:
+1. Change the console directory to the root of the git repository.
+2. Start the annotation tool by executing the file `annotation_editor.py`. This is usually done using one
+   of these commands: `python3 annotation_editor.py` or `python annotation_editor`.
+
+The package is tested under Ubuntu only. Windows and MacOS have not been tested yet. If something doesn't
+work, please open an issue in GitHub.
+
 ### Choosing the Correct Paths
 
 <img src="annotation_tool_tutorial/1.png" width="400">
@@ -19,7 +54,7 @@ First, the correct paths must be chosen. In this tutorial, we are going to use t
 project root directory for both the image directory and the output directory, where everything needed for the tutorial
 is already present. Click on `Continue`.
 
-### Creating the Segmentation Boxes
+### Creating Segmentation Boxes
 
 <img src="annotation_tool_tutorial/2.png" width="400">
 
@@ -70,7 +105,7 @@ In the mode `Create`, create new boxes the following way: First, move the mouse 
 of the place where the segmentation box should appear. Hold down the right mouse button and move it to the place where
 its lower right corner should be. When releasing the right mouse button, the new segmentation box appears.
 
-### Marking the Segmentation Boxes
+### Marking Segmentation Boxes
 
 <img src="annotation_tool_tutorial/12.png" width="400">
 
@@ -122,7 +157,7 @@ Annotating each box one after one is a tiresome process. Now, we annotate the pr
 
 In the quick fill textbox, paste the string "丙辰冬自無錫歸作此寓意". Then, annotate the mode and lyrics.
 
-### Annotating *Suzipu*`
+### Annotating *Suzipu*
 
 <img src="annotation_tool_tutorial/21.png" width="400">
 
@@ -193,6 +228,8 @@ When clicking at the five-line notation button, the score is on-the-fly rendered
 
 <img src="annotation_tool_tutorial/31.png" width="400">
 
+### Export Functions
+
 Using the button `Export Notation as Image`, ....
 
 <img src="annotation_tool_tutorial/32.png" width="400">
@@ -220,3 +257,41 @@ When clicking on the button `Export as Text`, ...
 original piece, the user-selected mode in parentheses, the lyrics, and the music in the same format as applicable in the
 music `Quick Fill` function.
 
+### Extract OMR Dataset from Corpus
+
+In order to extract an OMR dataset from the corpus, the file `extract_dataset_from_corpus.py` must be used. It is in the
+repository's root folder, and should be executed using the following syntax:
+
+```
+usage: extract_dataset_from_corpus.py [-h] --corpus_dir CORPUS_DIR --output_dir
+                                      OUTPUT_DIR
+
+Suzipu Annotated OMR Dataset Export Script.
+
+options:
+  -h, --help            show this help message and exit
+  --corpus_dir CORPUS_DIR
+                        Path to the folder which contains the corpus files (JSON
+                        format). The folder is checked recursively for any JSON
+                        files placed inside this folder or subfolders.
+  --output_dir OUTPUT_DIR
+                        Path to the output folder to which the dataset is saved. If
+                        it doesn't exist, the script will try to create the folder.
+```
+
+In our example, let's try to execute it with the corpus directory `--corpus_dir ./tutorial` and the output directory
+`--output_dir ./omr_dataset`. The folder `omr_dataset` is created, and the contents are two subfolders:
+
+<img src="export_omr_dataset_tutorial/01.png">
+
+In folder `Music`, the image data associated with notation boxes is saved, while  folder `Text` contains the text-based
+image data (i.e., title, mode, preface or lyrics) is saved.
+
+<img src="export_omr_dataset_tutorial/02.png">
+
+In each folder is a `dataset.json`, ...
+
+<img src="export_omr_dataset_tutorial/03.png">
+
+... which is a list of all files in this subfolder, with the file names indexed in field `file_name`, the original
+segmentation box type stored in field `type`, and the annotation string contained in field `annotation`.

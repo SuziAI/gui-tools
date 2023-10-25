@@ -1,2 +1,55 @@
-# gui-tools
-Collection of editors with GUI with the purpose of editing suzipu music notations or annotations.
+
+# gui-tools  
+Collection of tools with the purpose of digitally storing and editing suzipu music notations or annotations.
+
+## Preparing the Environment
+
+1. Make sure that `Python 3.10` is installed with the `tkinter` library. Under Windows `tkinter` should be
+provided by default. See also: [Ubuntu install](https://www.pythonguis.com/installation/install-tkinter-linux/),
+[MacOS install](https://www.pythonguis.com/installation/install-tkinter-mac/).
+2. Install the requirements from [requirements.txt](requirements.txt) using `pip`. This may be platform dependent, e.g.,
+   under Ubuntu this can be achieved with the command `python3 -m pip install -r requirements.txt`.
+
+## How to Cite
+
+Please cite the software using the paper
+[The Suzipu Musical Annotation Tool for the Creation of Machine-Readable Datasets of Ancient Chinese Music](https://link-to-paper.example.com)
+where the annotation tool was presented the first time:
+
+(To be completed after being published.)
+
+```
+@inproceedings{suzi-annotation,
+    title        = {The Suzipu Musical Annotation Tool for the Creation of Machine-Readable Datasets of Ancient Chinese Music},
+    author       = {Tristan Repolusk and Eduardo Veas},
+    year         = {2023},
+    month        = {11},
+    booktitle    = {Proceedings of the 5th International Workshop on Reading Music Systems},
+    pages        = {00--00},
+    editor       = {TODO},
+    doi          = {TODO},
+    url          = {TODO},
+}
+```
+
+## List of Tools
+
+Currently, this repository consists of the following tools:
+
+1. The JSON schema `json_schema.json` which can be used to verify that corpus files are of valid structure. To get
+   additional information about the digital representation format described by the schema, please refer to the figure
+   below and chapter `IV. Methods A. Digital Representation` of the original paper. 
+
+
+   <img src="readme_files/json_representation.png" width="400">
+
+
+2. ***Suzipu*** **Musical Annotation Tool**: Given a collection of images containing *suzipu* notation,
+	this tools provides everything needed to annotate the images with segmentation boxes and notation
+	information. This is the tool you need for creating datasets for use in OMR (optical music recognition)
+	projects.
+ 
+	[See the tutorial for the Suzipu Musical Annotation Tool](readme_files/README_ANNOTATION_TOOL.md)
+	
+	<img src="readme_files/annotation_tool_tutorial/14.png" width="400">
+

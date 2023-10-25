@@ -1,0 +1,3 @@
+[submodule "src/HRCenterNet"]
+	path = src/HRCenterNet
+	url = https://github.com/Tverous/HRCenterNet

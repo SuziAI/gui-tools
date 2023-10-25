@@ -103,7 +103,7 @@ be ensured. This is done using the button `Infer Box Order and Column Breaks`. I
 In the `Main Window`, choose the mode `Annotation`. Firstly, choose the type label button `Title`.
 The `Text Annotation` textbox is now ready to be filled with the correct character.
 
-<img src="annotation_tool_tutorial/18.png" width="400">
+<img src="annotation_tool_tutorial/18.png">
 
 Fill in the character "鬲".
 

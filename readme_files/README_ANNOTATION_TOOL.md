@@ -5,11 +5,13 @@ notation. Given a collection of images containing *suzipu* notation, it provides
 the images with segmentation boxes and notation information. This is the ideal tool for creating datasets for
 use in OMR (optical music recognition) settings.
 
+## Tutorial
+
 In this short tutorial, the goal is to annotate Jiang Kui's piece *Geximeiling* 鬲溪梅令 from the collection
 *Baishidaoren Gequ* 白石道人歌曲. All the necessary image material is found in the folder `tutorial`, and the
 file `tutorial/01_geximeiling.json` is the result of this tutorial.
 
-## Choosing the Correct Paths
+### Choosing the Correct Paths
 
 ![](annotation_tool_tutorial/1.png)
 
@@ -17,7 +19,7 @@ First, the correct paths must be chosen. In this tutorial, we are going to use t
 project root directory for both the image directory and the output directory, where everything needed for the tutorial
 is already present. Click on `Continue`.
 
-##Creating the Segmentation Boxes
+### Creating the Segmentation Boxes
 
 ![](annotation_tool_tutorial/2.png)
 
@@ -68,7 +70,7 @@ In the mode `Create`, create new boxes the following way: First, move the mouse 
 of the place where the segmentation box should appear. Hold down the right mouse button and move it to the place where
 its lower right corner should be. When releasing the right mouse button, the new segmentation box appears.
 
-##Marking the Segmentation Boxes
+### Marking the Segmentation Boxes
 
 ![](annotation_tool_tutorial/12.png)
 
@@ -94,7 +96,7 @@ After deleting, creating or marking segmentation boxes, the correct reading orde
 be ensured. This is done using the button `Infer Box Order and Column Breaks`. If this is not done, the
 \annotationtool will randomly jump between the boxes in the `Annotation` mode.
 
-##Annotating Text
+### Annotating Text
 
 ![](annotation_tool_tutorial/17.png)
 
@@ -120,7 +122,7 @@ Annotating each box one after one is a tiresome process. Now, we annotate the pr
 
 In the quick fill textbox, paste the string "丙辰冬自無錫歸作此寓意". Then, annotate the mode and lyrics.
 
-##Annotating *Suzipu*`
+### Annotating *Suzipu*`
 
 ![](annotation_tool_tutorial/21.png)
 
@@ -140,7 +142,7 @@ image dataset by marking the checkbox marked in red.
 Also for *suzipu* notation, quick fill can be used. Each cell is separated using the vertical bar character 
 |", and the contents of each cell are up to two characters as explained in the paper.
 
-##Mode Information
+### Mode Information
 
 ![](annotation_tool_tutorial/23.png)
 
@@ -161,13 +163,13 @@ in blue. Alternatively, we can directly click on the mode selector, ...
 ... so we have the possibility to choose from all 84 modes, instead of the 30 modes in the list, by choosing one out of
 12 \lvlv corresponding to \Gong, and one out of the 7 final notes.
 
-##Statistical Information`
+### Statistical Information`
 
 ![](annotation_tool_tutorial/27.png)
 
 Below, the `Statistics` field displays the absolute occurrence of each pitch and secondary *suzipu* character.
 
-##Notational Information
+### Notational Information
 
 ![](annotation_tool_tutorial/28.png)
 On the right side, the `Modern Notation` field displays an on-the-fly rendered score of the piece, where the

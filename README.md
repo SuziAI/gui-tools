@@ -16,19 +16,17 @@ Please cite the software using the paper
 [The Suzipu Musical Annotation Tool for the Creation of Machine-Readable Datasets of Ancient Chinese Music](https://link-to-paper.example.com)
 where the annotation tool was presented the first time:
 
-(To be completed after being published.)
-
 ```
-@inproceedings{suzi-annotation,
-    title        = {The Suzipu Musical Annotation Tool for the Creation of Machine-Readable Datasets of Ancient Chinese Music},
-    author       = {Tristan Repolusk and Eduardo Veas},
-    year         = {2023},
-    month        = {11},
-    booktitle    = {Proceedings of the 5th International Workshop on Reading Music Systems},
-    pages        = {00--00},
-    editor       = {TODO},
-    doi          = {TODO},
-    url          = {TODO},
+@InProceedings{Repolusk2023,
+  author    = {Repolusk, Tristan and Veas, Eduardo},
+  booktitle = {Proceedings of the 5th International Workshop on Reading Music Systems},
+  title     = {The Suzipu Musical Annotation Tool for the Creation of Machine-Readable Datasets of Ancient Chinese Music},
+  year      = {2023},
+  address   = {Milan, Italy},
+  editor    = {Calvo-Zaragoza, Jorge and Pacha, Alexander and Shatri, Elona},
+  pages     = {7--11},
+  file      = {:2023 - The Suzipu Musical Annotation Tool for the Creation of Machine Readable Datasets of Ancient Chinese Music.pdf:PDF},
+  url       = {https://sites.google.com/view/worms2023/proceedings},
 }
 ```
 

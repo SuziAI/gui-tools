@@ -835,7 +835,6 @@ def parse_arguments():
 
 
 if __name__ == "__main__":
-    args = parse_arguments()
     program_state = ProgramState()
 
     weights_path = "./weights/HRCenterNet.pth.tar"

@@ -55,17 +55,26 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
     music_annotations = []
 
     text_dir = os.path.join(output_dir, "./Text")
+    text_images_dir = os.path.join(output_dir, "./Text", "images")
     music_dir = os.path.join(output_dir, "./Music")
+    music_images_dir = os.path.join(output_dir, "./Music", "images")
+
     if not os.path.exists(text_dir):
         os.makedirs(text_dir)
+        os.makedirs(text_images_dir)
     if not os.path.exists(music_dir):
         os.makedirs(music_dir)
+        os.makedirs(music_images_dir)
 
     json_files = get_folder_contents(corpus_dir, "json")
     for file_name in json_files:
         with open(file_name, "r") as file_handle:
             segmentation_data = json.load(file_handle)
-            image_paths = [os.path.join(os.path.dirname(file_name), path) for path in segmentation_data["images"]]
+            try:
+                image_paths = [os.path.join(os.path.dirname(file_name), path) for path in segmentation_data["images"]]
+            except KeyError:
+                continue
+
             circle = ListCircle(image_paths)
             circle.set_if_present(image_paths[0])
             image = construct_image(image_name_circle=circle, left_counter=0, right_counter=len(image_paths)-1)
@@ -85,26 +94,32 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
                         try:
                             cut_out_text_image = get_image_from_box(image, box["text_coordinates"])
                             text_annotation = box["text_content"]
-                            box_file_name = f"{os.path.basename(image_paths[0])}_{idx}.png"
-                            box_file_path = os.path.join(text_dir, box_file_name)
-                            text_annotations.append({
-                                "file_name": box_file_name,
-                                "type": current_type,
-                                "annotation": text_annotation})
-                            cv2.imwrite(box_file_path, cut_out_text_image)
+                            box_file_name = f"{os.path.splitext(os.path.basename(image_paths[0]))[0]}_{idx}.png"
+                            box_file_path = os.path.join(text_images_dir, box_file_name)
+
+                            if text_annotation != "":
+                                image_relpath = os.path.relpath(box_file_path, text_dir)
+                                text_annotations.append({
+                                    "image_path": image_relpath,
+                                    "type": current_type,
+                                    "annotation": text_annotation})
+                                cv2.imwrite(box_file_path, cut_out_text_image)
                         except:
                             pass
 
                         try:
                             cut_out_notation_image = get_image_from_box(image, box["notation_coordinates"])
                             notation_annotation = box["notation_content"]
-                            box_file_name = f"{os.path.basename(image_paths[0])}_{idx}.png"
-                            box_file_path = os.path.join(music_dir, box_file_name)
-                            music_annotations.append({
-                                "file_name": box_file_name,
-                                "type": current_type,
-                                "annotation": notation_annotation})
-                            cv2.imwrite(box_file_path, cut_out_notation_image)
+                            box_file_name = f"{os.path.splitext(os.path.basename(image_paths[0]))[0]}_{idx}.png"
+                            box_file_path = os.path.join(music_images_dir, box_file_name)
+
+                            if notation_annotation != "":
+                                image_relpath = os.path.relpath(box_file_path, music_dir)
+                                music_annotations.append({
+                                    "image_path": image_relpath,
+                                    "type": current_type,
+                                    "annotation": notation_annotation})
+                                cv2.imwrite(box_file_path, cut_out_notation_image)
                         except:
                             pass
 

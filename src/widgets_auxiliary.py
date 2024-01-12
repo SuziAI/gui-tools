@@ -13,87 +13,6 @@ from src.config import JIANPU_BUTTON_IMAGE, FIVELINE_BUTTON_IMAGE
 from src.suzipu import SuzipuMelodySymbol, SuzipuAdditionalSymbol, suzipu_to_info, Symbol, GongcheMelodySymbol
 from src.notes_to_image import Fingering
 
-
-def exec_path_select_window(image_dir_text="", output_dir_text="", weight_file_text=""):
-    path_select_window = tk.Tk()
-    path_select_window.title("Suzipu Musical Annotation Tool - Select Paths")
-
-    image_dir = tk.StringVar();
-    image_dir.set(image_dir_text)
-    output_dir = tk.StringVar();
-    output_dir.set(output_dir_text)
-    weight_file = tk.StringVar();
-    weight_file.set(weight_file_text)
-
-    def update_button_state():
-        if image_dir.get() and output_dir.get():  #and weight_file.get():
-            b_continue.config(state="normal")
-
-    def select_image_dir():
-        dir_text = filedialog.askdirectory(
-            title='Open the image_to_draw directory',
-            initialdir='.',
-            mustexist=True
-        )
-        image_dir.set(dir_text)
-        update_button_state()
-
-    def select_output_dir():
-        dir_text = filedialog.askdirectory(
-            title='Open the output directory',
-            initialdir='.',
-            mustexist=True
-        )
-        output_dir.set(dir_text)
-        update_button_state()
-
-    def select_weight_file():
-        filetypes = (
-            ('recommended files', '*.pth.tar'),
-            ('All files', '*.*')
-        )
-        dir_text = filedialog.askopenfilename(
-            title='Open the model weight file',
-            initialdir='.',
-            filetypes=filetypes
-        )
-        weight_file.set(dir_text)
-        update_button_state()
-
-    images_label = tk.Label(path_select_window, text="Select Image Directory (containing the Chinese text images)")
-    images_dirbox = tk.Label(path_select_window, height=1, width=100, textvariable=image_dir, relief="sunken")
-    images_open = tk.Button(path_select_window, text="Open...", command=select_image_dir)
-
-    output_label = tk.Label(path_select_window, text="Select Output Directory (default directory for saving the files)")
-    output_dirbox = tk.Label(path_select_window, height=1, width=100, textvariable=output_dir, relief="sunken")
-    output_open = tk.Button(path_select_window, text="Open...", command=select_output_dir)
-
-    weights_label = tk.Label(path_select_window, text="Select model weights file (must be *.pth.tar)")
-    weights_dirbox = tk.Label(path_select_window, height=1, width=100, textvariable=weight_file, relief="sunken")
-    weights_open = tk.Button(path_select_window, text="Open...", command=select_weight_file)
-
-    # Create an Exit button.
-    b_continue = tk.Button(path_select_window, text="Continue",
-                           command=path_select_window.destroy, state="disabled")
-
-    update_button_state()
-
-    images_label.pack()
-    images_dirbox.pack()
-    images_open.pack(pady=(0, 20))
-    output_label.pack()
-    output_dirbox.pack()
-    output_open.pack(pady=(0, 20))
-    #weights_label.pack()
-    #weights_dirbox.pack()
-    #weights_open.pack(pady=(0, 20))
-    b_continue.pack()
-
-    path_select_window.mainloop()
-
-    return image_dir.get(), output_dir.get(), weight_file.get()
-
-
 def on_closing(window_handle):
     def close():
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
@@ -109,7 +28,7 @@ class PreviousNextFrame:
         self.display_variable = display_variable
         self.on_previous = on_previous
         self.on_next = on_next
-        self.frame = tk.LabelFrame(self.window_handle, text="Base image_to_draw")
+        self.frame = tk.LabelFrame(self.window_handle, text="Base image")
 
         self._create_frame()
 
@@ -227,10 +146,11 @@ class SelectionFrame:
 
 
 class SaveLoadFrame:
-    def __init__(self, window_handle, on_save_image=lambda: None, on_save=lambda: None, on_save_text=lambda: None, on_load=lambda: None):
+    def __init__(self, window_handle, on_save_image=lambda: None, on_new=lambda: None, on_save=lambda: None, on_save_text=lambda: None, on_load=lambda: None):
         self.window_handle = window_handle
         self.frame = tk.Frame(self.window_handle)
         self.on_save_image = on_save_image
+        self.on_new = on_new
         self.on_save = on_save
         self.on_load = on_load
         self.on_save_text = on_save_text
@@ -238,11 +158,13 @@ class SaveLoadFrame:
         self._create_frame()
 
     def _create_frame(self):
-        tk.Button(self.frame, text="Save", command=self.on_save).grid(row=0, column=0)
-        tk.Button(self.frame, text="Load", command=self.on_load).grid(row=0, column=1)
+        tk.Button(self.frame, text="New", command=self.on_new).grid(row=0, column=0)
+        tk.Button(self.frame, text="Open", command=self.on_load).grid(row=0, column=1)
         tk.Label(self.frame, text="").grid(row=0, column=2, padx=10)
-        tk.Button(self.frame, text="Export whole Image", command=self.on_save_image).grid(row=0, column=3)
-        tk.Button(self.frame, text="Export as Text", command=self.on_save_text).grid(row=0, column=4)
+        tk.Button(self.frame, text="Save", command=self.on_save).grid(row=0, column=3)
+        tk.Label(self.frame, text="").grid(row=0, column=4, padx=10)
+        tk.Button(self.frame, text="Export whole Image", command=self.on_save_image).grid(row=0, column=5)
+        tk.Button(self.frame, text="Export as Text", command=self.on_save_text).grid(row=0, column=6)
 
     def get_frame(self):
         return self.frame

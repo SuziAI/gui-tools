@@ -22,7 +22,7 @@ from src.auxiliary import ListCircle, BoxesWithType, is_point_in_rectangle, SetI
     state_to_json, get_folder_contents
 from src.modes import GongdiaoModeList
 from src.config import GO_INTO_ANNOTATION_MODE_IMAGE, INVALID_MODE_IMAGE
-from src.widgets_auxiliary import exec_path_select_window, on_closing, IncrementDecrementFrame, PreviousNextFrame, \
+from src.widgets_auxiliary import on_closing, IncrementDecrementFrame, PreviousNextFrame, \
     SelectionFrame, SaveLoadFrame, AdditionalInfoFrame
 from src.widgets_annotation import AnnotationFrame
 from src.hr_segmentation_adapter import predict_boxes
@@ -112,10 +112,10 @@ class OpenCvWindow:
 
 
 class MainWindow:
-    def __init__(self, images_dir, output_dir, program_state: ProgramState, weights_path: str):
+    def __init__(self, program_state: ProgramState, weights_path: str):
         self.program_state: ProgramState = None
-        self.images_dir = images_dir
-        self.output_dir = output_dir
+        self.images_dir = "./res/annotation_start_directory"
+        self.output_dir = "."
         self.image_name_circle: ListCircle = None
         self.must_be_changed = None
         self.images = []
@@ -632,13 +632,35 @@ class MainWindow:
                         f"Music: {get_content_string(BoxProperty.MUSIC)}\n\n"
                     )
 
+        def on_new():
+            images_dir = filedialog.askdirectory(
+                title='Open the image directory (must contain image files)',
+                initialdir=self.output_dir,
+                mustexist=True
+            )
+
+            if len(get_folder_contents(images_dir, only_images=True)) == 0:  # no images in folder!
+                showerror("Error",
+                          "The selected directory does not contain any image files (PNG, TIFF, JPEG)! Abort.")
+            else:
+                self.images_dir = images_dir
+                self.output_dir = images_dir
+                self.initial_filename = "untitled"
+                self.initialize(program_state)
+                right_increment_decrement_widget.set_counter(self.number_of_pages.get())
+                mode_string.set(GongdiaoModeList.from_properties(self.program_state.mode_properties).name)
+                additional_info.set_mode_properties(self.program_state.mode_properties)
+                self.image_name_circle.set_if_present(os.path.join(self.images_dir, Path(program_state.base_image_path).name))
+                must_be_changed()
+                on_activate_deactivate_annotation_frame()
+
         def on_load():
             filetypes = (
                 ('JSON file', '*.json'),
                 ('All files', '*.*')
             )
             file_path = filedialog.askopenfilename(
-                title='Open project',
+                title='Open JSON file',
                 initialdir=self.output_dir,
                 filetypes=filetypes
             )
@@ -682,7 +704,7 @@ class MainWindow:
         segment_pages_individually_checkbutton.grid(row=1, column=0)
         inner_frame.pack(padx=10, pady=10)
 
-        save_load_buttons = SaveLoadFrame(main_window, on_save_image, on_save, on_save_text, on_load).get_frame()
+        save_load_buttons = SaveLoadFrame(main_window, on_save_image, on_new, on_save, on_save_text, on_load).get_frame()
         annotation_frame = AnnotationFrame(main_window, boxtype_var,
                                            current_annotation_box_display_text, current_annotation_type_length,
                                            current_annotation_text,
@@ -814,10 +836,6 @@ def parse_arguments():
 
 if __name__ == "__main__":
     args = parse_arguments()
-    images_dir, output_dir, weights_path = exec_path_select_window(image_dir_text=args.images_dir,
-                                                                   output_dir_text=args.output_dir,
-                                                                   weight_file_text=args.weights_path)
-
     program_state = ProgramState()
 
     weights_path = "./weights/HRCenterNet.pth.tar"
@@ -826,10 +844,5 @@ if __name__ == "__main__":
         showerror("Error", "'HRCenterNet.pth.tar' could not be found. Please download the file 'HRCenterNet.pth.tar' and put it into the folder 'weights'. Abort.")
         exit(-1)
 
-    if len(get_folder_contents(images_dir, only_images=True)) == 0:  # no images in folder!
-        showerror("Error", "The selected directory 'images_dir' and subdirectories do not contain any image files (PNG, TIFF, JPEG)! Abort.")
-        exit(-1)
-
-    main_window = MainWindow(images_dir, output_dir, program_state, weights_path)
-    if images_dir and output_dir and weights_path:
-        main_window.exec()
+    main_window = MainWindow(program_state, weights_path)
+    main_window.exec()

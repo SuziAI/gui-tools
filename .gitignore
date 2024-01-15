@@ -7,7 +7,7 @@ version_1_extracted
 version_2
 version_2_extracted
 .idea
-corpus/*.txt
+corpus
 ignore/*
 output_results
 omr_dataset

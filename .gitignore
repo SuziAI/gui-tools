@@ -11,3 +11,5 @@ corpus
 ignore/*
 output_results
 omr_dataset
+.ipynb_checkpoints
+*.ipynb

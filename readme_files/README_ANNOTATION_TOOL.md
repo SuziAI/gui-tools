@@ -36,6 +36,8 @@ provided by default. See also: [Ubuntu install](https://www.pythonguis.com/insta
    [See the links provided in HRCenterNet's README](https://github.com/Tverous/HRCenterNet#download-the-dataset-and-the-pretrained-weight).
 4. Furthermore, the downloaded weight file `HRCenterNet.pth.tar` must be moved to the folder `weights` in the repository's
    root folder.
+5. For using the text-based `Intelligent Fill...` function, the `chi_tra.traineddata` for `tesseract` must be installed.
+   Use Wang Dingyun's trained model from [this site](https://github.com/gumblex/tessdata_chi/releases/tag/v20220621).
 
 
 For starting the annotation tool, follow these steps:
@@ -289,9 +291,13 @@ image data (i.e., title, mode, preface or lyrics) is saved.
 
 <img src="export_omr_dataset_tutorial/02.png">
 
-In each folder is a `dataset.json`, ...
+In each folder is a folder `images` and a `dataset.json`, ...
 
 <img src="export_omr_dataset_tutorial/03.png">
 
 ... which is a list of all files in this subfolder, with the file names indexed in field `file_name`, the original
 segmentation box type stored in field `type`, and the annotation string contained in field `annotation`.
+
+<img src="export_omr_dataset_tutorial/04.png">
+
+In the subfolder `images`, the extracted images are contained.

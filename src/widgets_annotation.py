@@ -74,7 +74,7 @@ def exec_intelligent_fill_window_text(annotation_type_var, max_length_var, get_b
             local_prediction = predict_from_images(image_list, progress, update)
             if not local_prediction:
                 exit_save_var.set(False)
-            
+
             prediction.set(local_prediction)
 
         def wait(message):

@@ -19,7 +19,7 @@ from PIL import Image
 
 from src.auxiliary import ListCircle, BoxesWithType, is_point_in_rectangle, SetInt, SelectionMode, Colors, BoxProperty, \
     ProgramState, box_property_to_color, get_image_from_box_fixed_size, open_file_as_tk_image, is_rectangle_big_enough, \
-    state_to_json, get_folder_contents
+    state_to_json, get_folder_contents, get_image_from_box_ai_assistant
 from src.modes import GongdiaoModeList
 from src.config import GO_INTO_ANNOTATION_MODE_IMAGE, INVALID_MODE_IMAGE
 from src.widgets_auxiliary import on_closing, IncrementDecrementFrame, PreviousNextFrame, \
@@ -239,22 +239,36 @@ class MainWindow:
                 for element in coordinate_list:
                     l.append(((element[0][0] + offset, element[0][1]), (element[1][0] + offset, element[1][1])))
                 return l
-
             self.program_state.content.reset()
+
+            def wait(message):
+                win = tk.Toplevel()
+                win.title('Wait')
+                new_label = tk.Label(win, text=message, padx=10, pady=10)
+                new_label.pack()
+                return win
+
+            def segment():
+                if segment_pages_individually.get():
+                    current_width_offset = 0
+                    boxes = []
+                    for img in self.images:
+                        current_box = predict_boxes(img, self.weights_path)
+                        current_box = shift_coordinates_by_width(current_box, current_width_offset)
+                        boxes += current_box
+                        current_width_offset += img.shape[1]
+
+                    self.program_state.content.create_from_coordinate_list(boxes)
+                else:
+                    self.program_state.content.create_from_coordinate_list(
+                        predict_boxes(self.current_image, self.weights_path))
+
             segmentation_button.config(state="disabled")
-
-            if segment_pages_individually.get():
-                current_width_offset = 0
-                boxes = []
-                for img in self.images:
-                    current_box = predict_boxes(img, self.weights_path)
-                    current_box = shift_coordinates_by_width(current_box, current_width_offset)
-                    boxes += current_box
-                    current_width_offset += img.shape[1]
-
-                self.program_state.content.create_from_coordinate_list(boxes)
-            else:
-                self.program_state.content.create_from_coordinate_list(predict_boxes(self.current_image, self.weights_path))
+            win = wait("Segmentation in progress. Please wait...")
+            main_window.wait_visibility(win)
+            win.update()
+            segment()
+            win.destroy()
             segmentation_button.config(state="normal")
 
         def on_infer_order():
@@ -286,8 +300,7 @@ class MainWindow:
             boxes = self.program_state.content
             for idx in range(len(boxes)):
                 self.type_dict[boxes.get_index_type(idx)].append(idx)
-                box_idx_to_image_dict[idx] = get_image_from_box_fixed_size(self.current_image,
-                                                                           boxes.get_index_coordinates(idx))
+                box_idx_to_image_dict[idx] = get_image_from_box_fixed_size(self.current_image, boxes.get_index_coordinates(idx))
             for boxtype_var in dataclasses.astuple(BoxProperty()):
                 self.type_dict[boxtype_var] = ListCircle(self.type_dict[boxtype_var])
 
@@ -425,6 +438,14 @@ class MainWindow:
             try:
                 return [self.program_state.content.get_index_annotation(box_idx) for box_idx in
                         self.type_dict[key].list]
+            except AttributeError:
+                return None
+
+        def get_box_images(key: str):
+            try:
+                coordinates = [self.program_state.content.get_index_coordinates(box_idx) for box_idx in self.type_dict[key].list]
+                images = [get_image_from_box_ai_assistant(self.current_image, coord) for coord in coordinates]
+                return images
             except AttributeError:
                 return None
 
@@ -712,7 +733,8 @@ class MainWindow:
                                            current_box_is_excluded,
                                            current_box_is_line_break,
                                            on_annotate_previous, on_annotate_next, on_save_annotation_to_box,
-                                           on_fill_all_boxes_of_type)
+                                           on_fill_all_boxes_of_type,
+                                           get_box_images)
         current_annotation_text.trace("w", on_save_annotation_to_box)
 
         notation_window = tk.Toplevel()
@@ -820,19 +842,6 @@ class MainWindow:
         annotation_frame.set_image(self.empty_image)
 
         main_window.mainloop()
-
-
-def parse_arguments():
-    parser = argparse.ArgumentParser(description="SegmentationEditor")
-    parser.add_argument("--images_dir", default="", required=False,
-                        help="Path to the folder containing the images for which the segmentation should be made. "
-                             "Note that the images must be JPEG or PNG.")
-    parser.add_argument("--output_dir", default="", required=False,
-                        help="Path to the output folder where the segmentations are saved.")
-    parser.add_argument("--weights_path", default="", required=False,
-                        help="Path to the model weigths as *.pth.tar file.")
-    return parser.parse_args()
-
 
 if __name__ == "__main__":
     program_state = ProgramState()

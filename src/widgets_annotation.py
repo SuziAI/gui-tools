@@ -1,11 +1,13 @@
 import dataclasses
 import tkinter as tk
+import tkinter.ttk
 
 import PIL
 from PIL import ImageTk
 
 from src.auxiliary import BoxProperty, open_file_as_tk_image, _create_suzipu_images
 from src.config import CHINESE_FONT_FILE
+from src.intelligent_assistant import predict_from_images
 from src.suzipu import SuzipuMelodySymbol, suzipu_to_info, SuzipuAdditionalSymbol, Symbol
 
 
@@ -55,6 +57,57 @@ def exec_quick_fill_window_text(annotation_type_var, max_length_var):
     return exit_save_var.get(), text_variable.get()
 
 
+def exec_intelligent_fill_window_text(annotation_type_var, max_length_var, get_box_images):
+    quick_fill_window = tk.Toplevel()
+
+    exit_save_var = tk.BooleanVar()
+    exit_save_var.set(False)
+
+    prediction = tk.StringVar()
+
+    def on_predict():
+        exit_save_var.set(True)
+        image_list = get_box_images(annotation_type)
+        progress = tk.IntVar(value=0)
+
+        def predict(update):
+            local_prediction = predict_from_images(image_list, progress, update)
+            if not local_prediction:
+                exit_save_var.set(False)
+
+            prediction.set(local_prediction)
+
+        def wait(message):
+            win = tk.Toplevel()
+            win.title('Wait')
+            tk.Label(win, text=message, padx=10, pady=10).pack()
+            tkinter.ttk.Progressbar(win, length=100, orient=tk.HORIZONTAL, variable=progress).pack(pady=10)
+            return win
+
+        win = wait("Intelligent text prediction in progress.")
+        quick_fill_window.wait_visibility(win)
+        win.update()
+
+        predict(update=win.update)
+        win.destroy()
+
+        quick_fill_window.destroy()
+
+    annotation_type = annotation_type_var.get()
+    quick_fill_window.title(f"Intelligent Fill {annotation_type}")
+
+    tk.Label(quick_fill_window, padx=10, pady=10, text=f"Intelligent Fill tries to recognize the characters from the\nsegmentation boxes of type {annotation_type}.\nIt might take a while, and all textual content is overwritten.\nProceed?").pack()
+
+    button_frame = tk.Frame(quick_fill_window)
+    tk.Button(button_frame, text="OK", command=on_predict).grid(column=0, row=0)
+    tk.Button(button_frame, text="Cancel", command=quick_fill_window.destroy).grid(column=1, row=0)
+    button_frame.pack()
+
+    quick_fill_window.wait_window()
+
+    return exit_save_var.get(), prediction.get()
+
+
 def exec_quick_fill_window_suzipu(annotation_type_var, max_length_var):
     quick_fill_window = tk.Toplevel()
 
@@ -102,11 +155,12 @@ def exec_quick_fill_window_suzipu(annotation_type_var, max_length_var):
 
 
 class TextAnnotationFrame:
-    def __init__(self, window_handle, current_text_annotation_variable, quick_fill_vars, on_fill_all_boxes_of_type):
+    def __init__(self, window_handle, current_text_annotation_variable, quick_fill_vars, on_fill_all_boxes_of_type, get_box_images):
         self.window_handle = window_handle
         self.current_text_annotation_variable = current_text_annotation_variable
         self.quick_fill_vars = quick_fill_vars
         self.on_fill_all_boxes_of_type = on_fill_all_boxes_of_type
+        self.get_box_images = get_box_images
 
         self.frame = tk.LabelFrame(self.window_handle, text="Text Annotation")
         self._widgets = []
@@ -119,10 +173,16 @@ class TextAnnotationFrame:
             if exit_save_var:
                 self.on_fill_all_boxes_of_type(text_variable)
 
+        def on_intelligent_fill():
+            exit_save_var, prediction = exec_intelligent_fill_window_text(*self.quick_fill_vars, self.get_box_images)
+            if exit_save_var:
+                self.on_fill_all_boxes_of_type(prediction)
+
         self._widgets.append(tk.Entry(self.frame, width=2, font="Arial 25",
                                       textvariable=self.current_text_annotation_variable,
                                       state="disabled"))
         self._widgets.append(tk.Button(self.frame, text="Quick Fill...", command=on_quick_fill, state="disabled"))
+        self._widgets.append(tk.Button(self.frame, text="Intelligent Fill...", command=on_intelligent_fill, state="disabled"))
 
         for widget in self._widgets:
             widget.pack(padx=10, pady=5)
@@ -267,7 +327,9 @@ class AnnotationFrame:
                  current_box_is_excluded,
                  current_box_is_line_break,
                  on_previous=lambda: None, on_next=lambda: None,
-                 on_change_annotation=lambda: None, on_fill_all_boxes_of_type=lambda: None):
+                 on_change_annotation=lambda: None,
+                 on_fill_all_boxes_of_type=lambda: None,
+                 get_box_images=lambda: None):
         self.window_handle = window_handle
         self.boxtype_variable = boxtype_variable
         self.display_variable = display_variable
@@ -280,6 +342,7 @@ class AnnotationFrame:
         self.on_next = lambda: [on_next(), self.update_musical_image_display()]
         self.on_change_annotation = lambda: [on_change_annotation(), self.update_musical_image_display()]
         self.on_fill_all_boxes_of_type = on_fill_all_boxes_of_type
+        self.get_box_images = get_box_images
 
         self.frame = tk.LabelFrame(self.window_handle, text="Annotation")
         self.image = None
@@ -322,7 +385,7 @@ class AnnotationFrame:
         annotations_frame = tk.Frame(self.frame)
         self.text_annotation = TextAnnotationFrame(annotations_frame, self.current_annotation_text_variable,
                                                    [self.boxtype_variable, self.type_length_variable],
-                                                   self.on_fill_all_boxes_of_type)
+                                                   self.on_fill_all_boxes_of_type, self.get_box_images)
         self.text_annotation.get_frame().grid(row=0, column=0, padx=10, pady=20)
         self.suzipu_annotation = SuzipuAnnotationFrame(annotations_frame, *self.musical_vars, self.on_change_annotation, [self.boxtype_variable, self.type_length_variable],
                                                    self.on_fill_all_boxes_of_type)

@@ -414,8 +414,20 @@ def get_image_from_box_fixed_size(current_image, box):
     cropped_img = Image.fromarray(cropped_img)
     return_img = Image.new(cropped_img.mode, (80, 80), (255, 255, 255))
     return_img.paste(cropped_img, ((80 - cropped_img.size[0]) // 2, (80 - cropped_img.size[1]) // 2))
-    imgtk = ImageTk.PhotoImage(image=return_img)
-    return imgtk
+    return ImageTk.PhotoImage(image=return_img)
+
+
+def get_image_from_box_ai_assistant(current_image, box):
+    (x1, y1), (x2, y2) = box
+    x1, x2 = min(x1, x2), max(x1, x2)
+    y1, y2 = min(y1, y2), max(y1, y2)
+
+    image = current_image[y1:y2, x1:x2]
+    image = 255 - image
+    image = cv2.resize(image, (60, 60), interpolation=cv2.INTER_NEAREST)
+    image = cv2.copyMakeBorder(image, 5, 5, 5, 5, cv2.BORDER_CONSTANT)
+    image = 255 - image
+    return image
 
 
 def get_image_from_box(current_image, box):

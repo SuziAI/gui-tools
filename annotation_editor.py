@@ -20,13 +20,12 @@ from PIL import Image
 from src.auxiliary import ListCircle, BoxesWithType, is_point_in_rectangle, SetInt, SelectionMode, Colors, BoxProperty, \
     ProgramState, box_property_to_color, get_image_from_box_fixed_size, open_file_as_tk_image, is_rectangle_big_enough, \
     state_to_json, get_folder_contents, get_image_from_box_ai_assistant
-from src.modes import GongdiaoModeList
 from src.config import GO_INTO_ANNOTATION_MODE_IMAGE, INVALID_MODE_IMAGE
 from src.widgets_auxiliary import on_closing, IncrementDecrementFrame, PreviousNextFrame, \
-    SelectionFrame, SaveLoadFrame, AdditionalInfoFrame
+    SelectionFrame, SaveLoadFrame
 from src.widgets_annotation import AnnotationFrame
 from src.hr_segmentation_adapter import predict_boxes
-from src.suzipu import Symbol
+from src.plugins.suzipu_lvlvpu_gongchepu.common import Symbol, GongdiaoModeList, AdditionalInfoFrame, DisplayNotesFrame
 from src.notes_to_image import notation_to_jianpu, notation_to_western, NotationResources, \
     construct_metadata_image, vertical_composition, add_border, write_to_musicxml
 
@@ -424,7 +423,7 @@ class MainWindow:
             draw_image = opencv_window.get_current_draw_image()
             if draw_image is not None:
                 file_path = asksaveasfilename(
-                    initialdir=output_dir,
+                    initialdir=self.output_dir,
                     initialfile=get_current_filename_from_circle(self.image_name_circle),
                     defaultextension=".png",
                     filetypes=[("All Files", "*.*"), ("JPEG File", "*.jpg"), ("PNG File", "*.png")])
@@ -482,9 +481,9 @@ class MainWindow:
             except TypeError:  # This happens when the chosen mode dows not match the piece
                 return None
 
-            fingering = additional_info.get_transposition()
+            fingering = display_notes_frame.get_transposition()
 
-            if additional_info.is_jianpu():
+            if display_notes_frame.is_jianpu():
                 notation_img = notation_to_jianpu(self.notation_resources.small_font,
                                                   self.notation_resources.jianpu_image_dict,
                                                   music_list, lyrics_list,
@@ -556,7 +555,7 @@ class MainWindow:
             except TypeError:  # This happens when the chosen mode dows not match the piece
                 return None
 
-            fingering = additional_info.get_transposition()
+            fingering = display_notes_frame.get_transposition()
 
             title = get_content_string(BoxProperty.TITLE)
             mode_str = f"{get_content_string(BoxProperty.MODE)}（{GongdiaoModeList.from_string(mode_string.get()).chinese_name}）"
@@ -571,7 +570,7 @@ class MainWindow:
             draw_image = opencv_window.get_current_draw_image()
             if draw_image is not None:
                 file_path = asksaveasfilename(
-                    initialdir=output_dir,
+                    initialdir=self.output_dir,
                     initialfile=self.initial_filename,
                     defaultextension=".png",
                     filetypes=[("PNG File", "*.png"), ("All Files", "*.*")])
@@ -584,7 +583,7 @@ class MainWindow:
             draw_image = opencv_window.get_current_draw_image()
             if draw_image is not None:
                 file_path = asksaveasfilename(
-                    initialdir=output_dir,
+                    initialdir=self.output_dir,
                     initialfile=self.initial_filename,
                     defaultextension=".musicxml",
                     filetypes=[("MusicXML File", "*.musicxml"), ("All Files", "*.*")])
@@ -593,7 +592,8 @@ class MainWindow:
 
         def on_save():
             self.program_state.number_of_pages = self.number_of_pages.get()
-            self.program_state.mode_properties = additional_info.get_mode_properties()
+
+            self.program_state.mode_properties = annotation_frame.get_mode_properties()
             new_program_state = copy.copy(self.program_state)
 
             try:
@@ -670,7 +670,9 @@ class MainWindow:
                 self.initialize(program_state)
                 right_increment_decrement_widget.set_counter(self.number_of_pages.get())
                 mode_string.set(GongdiaoModeList.from_properties(self.program_state.mode_properties).name)
-                additional_info.set_mode_properties(self.program_state.mode_properties)
+
+                annotation_frame.set_mode_properties(self.program_state.mode_properties)
+
                 self.image_name_circle.set_if_present(os.path.join(self.images_dir, Path(program_state.base_image_path).name))
                 must_be_changed()
                 on_activate_deactivate_annotation_frame()
@@ -696,7 +698,9 @@ class MainWindow:
                     self.initialize(program_state)
                     right_increment_decrement_widget.set_counter(self.number_of_pages.get())
                     mode_string.set(GongdiaoModeList.from_properties(self.program_state.mode_properties).name)
-                    additional_info.set_mode_properties(self.program_state.mode_properties)
+
+                    annotation_frame.set_mode_properties(self.program_state.mode_properties)
+
                     self.image_name_circle.set_if_present(os.path.join(self.images_dir, Path(program_state.base_image_path).name))
                     must_be_changed()
                     on_activate_deactivate_annotation_frame()
@@ -734,14 +738,17 @@ class MainWindow:
                                            current_box_is_line_break,
                                            on_annotate_previous, on_annotate_next, on_save_annotation_to_box,
                                            on_fill_all_boxes_of_type,
-                                           get_box_images)
+                                           get_box_images,
+                                           mode_variable=mode_string,
+                                           get_mode_string=get_mode_string)
         current_annotation_text.trace("w", on_save_annotation_to_box)
 
         notation_window = tk.Toplevel()
         notation_window.title("Suzipu Musical Annotation Tool - Additional Info")
         notation_window.protocol("WM_DELETE_WINDOW", lambda: None)
         notation_window.resizable(False, False)
-        additional_info = AdditionalInfoFrame(notation_window, mode_string, on_save_notation, on_save_musicxml, get_mode_string)
+        #display_notes_frame = AdditionalInfoFrame(notation_window, mode_string, on_save_notation, on_save_musicxml, get_mode_string)
+        display_notes_frame = DisplayNotesFrame(notation_window, on_save_notation=on_save_notation, on_save_musicxml=on_save_musicxml)
 
         def reset_annotation_vars():
             current_annotation_text.set("")
@@ -773,9 +780,9 @@ class MainWindow:
             if notation_img:
                 notation_img = resize_to_width(notation_img)
                 notation_img = ImageTk.PhotoImage(image=notation_img)
-                additional_info.set_image(notation_img)
+                display_notes_frame.set_image(notation_img)
             else:
-                additional_info.set_image(invalid_mode_image)
+                display_notes_frame.set_image(invalid_mode_image)
 
             def get_suzipu_list():
                 try:
@@ -795,11 +802,12 @@ class MainWindow:
                     return None
 
             if selectionmode_var.get() == SelectionMode.ANNOTATE:
-                additional_info.set_state(True)
-                additional_info.set_statistics(get_suzipu_list())
+                display_notes_frame.set_state(True)
+                # TODO: Restructure
+                #display_notes_frame.set_statistics(get_suzipu_list())
             else:
-                additional_info.set_state(False)
-                additional_info.set_image(go_into_annotation_mode_image)
+                display_notes_frame.set_state(False)
+                display_notes_frame.set_image(go_into_annotation_mode_image)
 
         def start_opencv_timer():
             handle_opencv_window()
@@ -829,7 +837,7 @@ class MainWindow:
         selection_buttons.get_frame().grid(row=4, column=1, pady=10)
         annotation_frame.get_frame().grid(row=5, column=1, padx=10, pady=10)
 
-        additional_info.get_frame().grid(row=6, column=1)
+        display_notes_frame.get_frame().grid(row=6, column=1)
 
         main_window.after(1, start_opencv_timer)
         main_window.after(1, start_notation_window_timer)

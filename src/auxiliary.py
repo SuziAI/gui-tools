@@ -1,6 +1,4 @@
-import copy
 import dataclasses
-import json
 import os
 
 import PIL
@@ -8,9 +6,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageTk
 
-from src.modes import ModeProperties
-from src.suzipu import SuzipuMelodySymbol, suzipu_to_info, SuzipuAdditionalSymbol, Symbol, GongcheMelodySymbol, \
-    NotationType
+from src.plugins import NotationType
 
 
 def get_folder_contents(path, only_images=False):
@@ -22,6 +18,7 @@ def get_folder_contents(path, only_images=False):
         return l
     except Exception as e:
         print(f"Could not read files from directory {path}. {e}")
+
 
 def pil_to_cv(pil_image):
     open_cv_image = np.array(pil_image)
@@ -262,9 +259,9 @@ class BoxesWithType(JsonSerializable):
 
 @dataclasses.dataclass
 class ProgramState(JsonSerializable):
-    notation_type: str = NotationType.SUZIPU
+    notation_type: str = NotationType()
     number_of_pages: int = 1
-    mode_properties: ModeProperties = ModeProperties(0, "宫")
+    mode_properties: dict = dataclasses.field(default_factory=dict)
     base_image_path: str = dataclasses.field(default=None)
     content: BoxesWithType = dataclasses.field(default=BoxesWithType())
     version: str = "1.0"
@@ -320,14 +317,14 @@ class ProgramState(JsonSerializable):
 
         instance = super().load(data)
         instance.content = BoxesWithType(content_to_boxes_format(data["content"]))
-        instance.mode_properties = ModeProperties(instance.mode_properties["gong_lvlv"], instance.mode_properties["final_note"])
+        instance.mode_properties = instance.mode_properties
 
         return instance
 
     def dump(self) -> dict:
         dictionary = dataclasses.asdict(self)
         dictionary["content"] = dictionary["content"]["boxes_list"]
-        dictionary["mode_properties"] = {"gong_lvlv": self.mode_properties.gong_lvlv, "final_note": self.mode_properties.final_note}
+        dictionary["mode_properties"] = self.mode_properties
         return dictionary
 
 
@@ -445,14 +442,3 @@ def open_file_as_tk_image(file_path):
     return ImageTk.PhotoImage(image=button_img)
 
 
-def _create_suzipu_images():
-    dictionary = {}
-    for melody_var in dataclasses.astuple(GongcheMelodySymbol()):
-        dictionary[melody_var] = open_file_as_tk_image(suzipu_to_info(melody_var).button_image_filename)
-    for additional_var in dataclasses.astuple(SuzipuAdditionalSymbol()):
-        dictionary[additional_var] = open_file_as_tk_image(suzipu_to_info(additional_var).button_image_filename)
-    dictionary[Symbol.NONE] = open_file_as_tk_image(suzipu_to_info(Symbol.NONE).button_image_filename)
-    dictionary[Symbol.ERROR] = open_file_as_tk_image(suzipu_to_info(Symbol.ERROR).button_image_filename)
-    dictionary[None] = open_file_as_tk_image(suzipu_to_info(Symbol.NONE).button_image_filename)
-
-    return dictionary

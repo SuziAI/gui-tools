@@ -258,7 +258,7 @@ class BoxesWithType(JsonSerializable):
 
 
 @dataclasses.dataclass
-class ProgramState(JsonSerializable):
+class PieceProperties(JsonSerializable):
     notation_type: str = NotationType()
     number_of_pages: int = 1
     mode_properties: dict = dataclasses.field(default_factory=dict)

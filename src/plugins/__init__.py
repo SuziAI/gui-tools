@@ -20,7 +20,7 @@ class NotationType:
         except Exception as e:
             print(f"Could not read files from directory './src/plugins'. {e}")
 
-        print(self.plugin_paths)
+        print("PLUGINS:", self.plugin_paths)
 
 
 #class NotationAnnotationFrameProtocol(Protocol):

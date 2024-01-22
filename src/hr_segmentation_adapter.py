@@ -30,7 +30,7 @@ output_size = 128
 def load_model(weights_path):
     try:
         if weights_path is not None:
-            #print("Load checkpoint from " + weights_path)
+            #print("Load checkpoint from " + segmentation_weights_path)
             checkpoint = torch.load(weights_path, map_location="cpu")
 
         model = segmentation_net()

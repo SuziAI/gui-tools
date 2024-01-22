@@ -138,12 +138,15 @@ def apply_border_to_boxes(boxes, border_width, border_heigth):
     return new_boxes
 
 
-def construct_note_stream(suzipu_list, lyrics_list, line_break_idxs):
+def construct_note_stream(notation_list, lyrics_list, line_break_idxs):
     stream = music21.stream.Stream()
 
     current_measure = music21.stream.Measure()
-    for box_idx, str in enumerate(suzipu_list):
-        if not len(str):  # Case 1: no suzipu notation in the box
+    for box_idx, notation in enumerate(notation_list):
+        pitch = notation["pitch"]
+        secondary = notation["secondary"]
+
+        if not pitch:
             note = music21.note.Rest()
             note.lyric = lyrics_list[box_idx]
 
@@ -156,48 +159,19 @@ def construct_note_stream(suzipu_list, lyrics_list, line_break_idxs):
 
             current_measure.append([note])
         else:
-            char1 = str[0]
-            char2 = None
-            try:
-                char2 = str[1]
-            except IndexError:
-                pass
+            pitch = suzipu_to_info(pitch).basic_pitch
 
-            pitch1 = suzipu_to_info(char1).basic_pitch if char1 else None
-            pitch2 = suzipu_to_info(char2).basic_pitch if char2 else None
+            note = music21.note.Note(pitch, type="16th")
+            note.lyric = lyrics_list[box_idx]
 
-            original_pitch_char = char1 if char1 else char2
+            note.line_break = False
+            if box_idx in line_break_idxs:
+                note.line_break = True
 
-            if pitch1 and pitch2:  # Case 2a: Two pitches in the pair-character notation
-                note1 = music21.note.Note(pitch1, type="32nd")
-                note1.lyric = lyrics_list[box_idx]
-                note2 = music21.note.Note(pitch2, type="32nd")
+            note.additional_symbol = secondary
+            note.original_pitch = pitch
 
-                note1.additional_symbol = None
-                note2.additional_symbol = None
-                note1.original_pitch = original_pitch_char
-
-                note1.line_break = False
-                note2.line_break = False
-                if box_idx in line_break_idxs:
-                    note2.line_break = True
-
-                current_measure.append([note1, note2])
-
-            else:  # Case 2b: One pitch in the pair-character notation
-                pitch = pitch1 if pitch1 else pitch2
-
-                note = music21.note.Note(pitch, type="16th")
-                note.lyric = lyrics_list[box_idx]
-
-                note.line_break = False
-                if box_idx in line_break_idxs:
-                    note.line_break = True
-
-                note.additional_symbol = char1 if char1 in dataclasses.astuple(SuzipuAdditionalSymbol()) else char2
-                note.original_pitch = original_pitch_char
-
-                current_measure.append([note])
+            current_measure.append([note])
     stream.append(current_measure)
 
     return stream

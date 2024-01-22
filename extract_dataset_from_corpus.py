@@ -4,7 +4,7 @@ import os
 
 import cv2
 
-from src.auxiliary import get_image_from_box, BoxProperty, ListCircle
+from src.auxiliary import get_image_from_box, BoxType, ListCycle
 
 
 def extract_dataset_from_corpus(corpus_dir, output_dir):
@@ -75,7 +75,7 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
             except KeyError:
                 continue
 
-            circle = ListCircle(image_paths)
+            circle = ListCycle(image_paths)
             circle.set_if_present(image_paths[0])
             image = construct_image(image_name_circle=circle, left_counter=0, right_counter=len(image_paths)-1)
 
@@ -90,7 +90,7 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
 
                 if not is_excluded:  # only save in dataset when not excluded
                     current_type = box["box_type"]
-                    if current_type != BoxProperty.UNMARKED:
+                    if current_type != BoxType.UNMARKED:
                         try:
                             cut_out_text_image = get_image_from_box(image, box["text_coordinates"])
                             text_annotation = box["text_content"]

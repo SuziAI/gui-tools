@@ -1,41 +1,44 @@
 import dataclasses
+import json
 import tkinter as tk
 
+from src.programstate import PieceProperties, GuiState, ProgramState
 from src.config import CHINESE_FONT_FILE
 from src.plugins.suzipu_lvlvpu_gongchepu.common import Symbol, SuzipuMelodySymbol, SuzipuAdditionalSymbol, \
     _create_suzipu_images, ModeSelectorFrame
 
 
 class NotationAnnotationFrame:
-    def __init__(self, window_handle, first_musical_var, second_musical_var,
-                 on_change_annotation=lambda: None, quick_fill_vars=[], on_fill_all_boxes_of_type=lambda: None,
-                 mode_variable=None, get_mode_string=lambda: None):
+    def __init__(self, window_handle, program_state: ProgramState):
         self.window_handle = window_handle
+        self.program_state = program_state
+
         self.frame = tk.Frame(self.window_handle)
-        self.first_musical_var = first_musical_var
-        self.second_musical_var = second_musical_var
-        self.on_change_annotation = on_change_annotation
-        self.quick_fill_vars = quick_fill_vars
-        self.on_fill_all_boxes_of_type = on_fill_all_boxes_of_type
-        self.mode_variable = mode_variable
-        self.get_mode_string = get_mode_string
 
         self.mode_selector = None
 
         self.display_first_symbol = None
         self.display_second_symbol = None
 
+        self.first_musical_var = tk.StringVar(self.frame, "None")
+        self.second_musical_var = tk.StringVar(self.frame, "None")
+
         self._widgets = []
         self._button_images = _create_suzipu_images()
 
         self._create_frame()
 
-    def update_musical_display_image(self):
-        self.display_first_symbol.config(image=self._button_images[str(self.first_musical_var.get())])
-        self.display_second_symbol.config(image=self._button_images[str(self.second_musical_var.get())])
+    def update_display(self):
+        annotation = self.program_state.get_current_annotation()
+        self.display_first_symbol.config(image=self._button_images[annotation["pitch"]])
+        self.display_second_symbol.config(image=self._button_images[annotation["secondary"]])
+        self.first_musical_var.set(annotation["pitch"])
+        self.second_musical_var.set(annotation["secondary"])
+
+
 
     def _create_frame(self):
-        self.mode_selector = ModeSelectorFrame(self.frame, mode_variable=self.mode_variable, on_get_mode_string=self.get_mode_string)
+        self.mode_selector = ModeSelectorFrame(self.frame, mode_variable=self.program_state.gui_state.tk_current_mode_string, on_get_mode_string=self.program_state.get_mode_string)
 
         mode_selector_frame = self.mode_selector.get_frame()
         annotator_frame = tk.Frame(self.frame)
@@ -48,14 +51,19 @@ class NotationAnnotationFrame:
                                               image=self._button_images[Symbol.NONE],
                                               relief="sunken", state="disabled")
 
+        def update_annotation(*args):
+            annotation = {"pitch": self.first_musical_var.get(), "secondary": self.second_musical_var.get()}
+            self.program_state.set_current_annotation(annotation)
+            self.update_display()
+
         def construct_suzipu_frame(frame, musical_var, primary=True):
             prefix = "Pitch" if primary else "Secondary"
             symbol_frame = tk.LabelFrame(frame, text=f"{prefix} Symbol")
 
             none_button = tk.Radiobutton(symbol_frame, image=self._button_images[Symbol.NONE],
                                          variable=musical_var,
-                                         value="None", indicator=0, state="disabled",
-                                         command=lambda: [self.on_change_annotation(), self.update_musical_display_image()])
+                                         value=None, indicator=0, state="disabled",
+                                         command=update_annotation)
             none_button.grid(row=0, column=0)
             self._widgets.append(none_button)
 
@@ -64,7 +72,7 @@ class NotationAnnotationFrame:
                     current_button = tk.Radiobutton(symbol_frame, image=self._button_images[melody_var],
                                                     variable=musical_var,
                                                     value=melody_var, indicator=0, state="disabled",
-                                                    command=lambda: [self.on_change_annotation(), self.update_musical_display_image()])
+                                                    command=update_annotation)
                     self._widgets.append(current_button)
                     current_button.grid(row=0, column=idx+1)
             else:
@@ -72,15 +80,15 @@ class NotationAnnotationFrame:
                     current_button = tk.Radiobutton(symbol_frame, image=self._button_images[additional_var],
                                                     variable=musical_var,
                                                     value=additional_var, indicator=0, state="disabled",
-                                                    command=lambda: [self.on_change_annotation(), self.update_musical_display_image()])
+                                                    command=update_annotation)
                     self._widgets.append(current_button)
                     current_button.grid(row=0, column=idx+1)
             return symbol_frame
 
         def on_quick_fill():
-            exit_save_var, text_variable = exec_quick_fill_window_suzipu(*self.quick_fill_vars)
+            exit_save_var, text_variable = exec_quick_fill_window_suzipu(self.program_state.gui_state.tk_current_boxtype, self.program_state.gui_state.tk_num_all_boxes_of_current_type)
             if exit_save_var:
-                self.on_fill_all_boxes_of_type(text_variable)
+                self.program_state.fill_all_boxes_of_type(text_variable)
 
         quick_fill_button = tk.Button(annotator_frame, text="Quick Fill...", command=on_quick_fill, state="disabled")
 
@@ -108,6 +116,7 @@ class NotationAnnotationFrame:
             state = "normal"
         for widget in self._widgets:
             widget.config(state=state)
+        self.mode_selector.set_state(boolean)
 
     def set_mode_properties(self, props: dict):
         self.mode_selector.set_properties(props)

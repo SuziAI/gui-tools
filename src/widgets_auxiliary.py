@@ -2,7 +2,8 @@ import dataclasses
 import tkinter as tk
 from tkinter import messagebox
 
-from src.auxiliary import SetInt, SelectionMode, BoxProperty, get_class_variables, bgr_to_tkinter, box_property_to_color
+from src.auxiliary import get_class_variables, bgr_to_tkinter, box_property_to_color, BoxType, SetInt, \
+    BoxManipulationAction
 
 
 def on_closing(window_handle):
@@ -104,23 +105,23 @@ class SelectionFrame:
         frame2 = tk.Frame(self.frame)
 
         boxtype_buttons = []
-        for boxtype_var in dataclasses.astuple(BoxProperty()):
+        for boxtype_var in dataclasses.astuple(BoxType()):
             boxtype_buttons.append(tk.Radiobutton(frame2, text=boxtype_var, variable=self.boxtype_var,
                                                   value=boxtype_var, indicator=0, state="disabled",
                                                   bg=bgr_to_tkinter(box_property_to_color(boxtype_var)),
                                                   command=self.on_change_box_type_selection))
 
         def _on_change_selection_mode():
-            self.is_active = self.selectionmode_var.get() in [SelectionMode.CREATE, SelectionMode.MARK,
-                                                              SelectionMode.ANNOTATE]
+            self.is_active = self.selectionmode_var.get() in [BoxManipulationAction.CREATE, BoxManipulationAction.MARK,
+                                                              BoxManipulationAction.ANNOTATE]
             state = "normal" if self.is_active else "disabled"
 
             for boxtype_button_element in boxtype_buttons:
                 boxtype_button_element.config(state=state)
             self.on_change_mode_selection()
 
-        for idx, selection_mode in enumerate(get_class_variables(SelectionMode)):
-            if selection_mode == SelectionMode.ANNOTATE:
+        for idx, selection_mode in enumerate(get_class_variables(BoxManipulationAction)):
+            if selection_mode == BoxManipulationAction.ANNOTATE:
                 command = lambda: [self.on_click_annotate(), _on_change_selection_mode()]
             else:
                 command = _on_change_selection_mode

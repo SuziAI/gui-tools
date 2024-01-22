@@ -6,8 +6,6 @@ import cv2
 import numpy as np
 from PIL import Image, ImageTk
 
-from src.plugins import NotationType
-
 
 def get_folder_contents(path, only_images=False):
     try:
@@ -55,7 +53,7 @@ def state_to_json(program_state):
         music_box = music_list[idx]
 
         new_content.append({
-            "box_type": BoxProperty.MUSIC,
+            "box_type": BoxType.MUSIC,
             "is_excluded_from_dataset": music_box["is_excluded_from_dataset"],
             "is_line_break": text_box["is_line_break"],
             "text_coordinates": text_box["coordinates"],
@@ -89,7 +87,7 @@ class Colors:
 
 
 @dataclasses.dataclass
-class BoxProperty:
+class BoxType:
     TITLE: str = "Title"
     MODE: str = "Mode"
     PREFACE: str = "Preface"
@@ -98,14 +96,14 @@ class BoxProperty:
     UNMARKED: str = "Unmarked"
 
 
-def box_property_to_color(box_property: BoxProperty):
+def box_property_to_color(box_property: BoxType):
     box_property_to_color_dict = {
-        BoxProperty.UNMARKED: Colors.RED,
-        BoxProperty.TITLE: Colors.BLUE,
-        BoxProperty.MODE: Colors.MAGENTA,
-        BoxProperty.PREFACE: Colors.LIME,
-        BoxProperty.MUSIC: Colors.CYAN,
-        BoxProperty.LYRICS: Colors.YELLOW,
+        BoxType.UNMARKED: Colors.RED,
+        BoxType.TITLE: Colors.BLUE,
+        BoxType.MODE: Colors.MAGENTA,
+        BoxType.PREFACE: Colors.LIME,
+        BoxType.MUSIC: Colors.CYAN,
+        BoxType.LYRICS: Colors.YELLOW,
     }
 
     try:
@@ -113,6 +111,63 @@ def box_property_to_color(box_property: BoxProperty):
     except KeyError as e:
         print(f"Could not find a color associated with value {box_property}. {e}")
         return Colors.RED
+
+
+def is_point_in_rectangle(point, rectangle):
+    return (rectangle[0][0] <= point[0] <= rectangle[1][0] or rectangle[1][0] <= point[0] <= rectangle[0][0])\
+        and (rectangle[0][1] <= point[1] <= rectangle[1][1] or rectangle[1][1] <= point[1] <= rectangle[0][1])
+
+
+def is_rectangle_big_enough(rectangle):
+    return abs(rectangle[0][0] - rectangle[1][0]) > 5 and abs(rectangle[0][1] - rectangle[1][1]) > 5
+
+
+def get_class_variables(classname):
+    basic_list = vars(classname)
+    return [basic_list[key] for key in basic_list.keys() if
+            not callable(getattr(classname, key)) and not key.startswith("__")]
+
+
+def get_image_from_box_fixed_size(current_image, box):
+    (x1, y1), (x2, y2) = box
+    x1, x2 = min(x1, x2), max(x1, x2)
+    y1, y2 = min(y1, y2), max(y1, y2)
+
+    cropped_img = current_image[y1:y2, x1:x2]
+    blue, green, red = cv2.split(cropped_img)
+    cropped_img = cv2.merge((red, green, blue))
+    cropped_img = Image.fromarray(cropped_img)
+    return_img = Image.new(cropped_img.mode, (80, 80), (255, 255, 255))
+    return_img.paste(cropped_img, ((80 - cropped_img.size[0]) // 2, (80 - cropped_img.size[1]) // 2))
+    return ImageTk.PhotoImage(image=return_img)
+
+
+def get_image_from_box_ai_assistant(current_image, box):
+    (x1, y1), (x2, y2) = box
+    x1, x2 = min(x1, x2), max(x1, x2)
+    y1, y2 = min(y1, y2), max(y1, y2)
+
+    image = current_image[y1:y2, x1:x2]
+    image = 255 - image
+    image = cv2.resize(image, (60, 60), interpolation=cv2.INTER_NEAREST)
+    image = cv2.copyMakeBorder(image, 5, 5, 5, 5, cv2.BORDER_CONSTANT)
+    image = 255 - image
+    return image
+
+
+def get_image_from_box(current_image, box):
+    (x1, y1), (x2, y2) = box
+    x1, x2 = min(x1, x2), max(x1, x2)
+    y1, y2 = min(y1, y2), max(y1, y2)
+
+    cropped_img = current_image[y1:y2, x1:x2, :]
+    return cropped_img
+
+
+def open_file_as_tk_image(file_path):
+    button_img = PIL.Image.open(file_path)
+    # cropped_img = cropped_img.resize((40, 40))
+    return ImageTk.PhotoImage(image=button_img)
 
 
 @dataclasses.dataclass
@@ -150,7 +205,7 @@ class BoxesWithType(JsonSerializable):
     boxes_list: list[dict] = dataclasses.field(default_factory=lambda: [])
 
     @classmethod
-    def create_new_box(cls, coordinates: tuple = tuple(), type: str =BoxProperty.UNMARKED, annotation: str = "", is_excluded_from_dataset: bool = False, is_line_break: bool = False):
+    def create_new_box(cls, coordinates: tuple = tuple(), type: str =BoxType.UNMARKED, annotation="", is_excluded_from_dataset: bool = False, is_line_break: bool = False):
         return {
             "coordinates": coordinates,
             "box_type": type,
@@ -166,7 +221,7 @@ class BoxesWithType(JsonSerializable):
     def reset(self):
         self.boxes_list = []
 
-    def add_rectangle(self, point_1, point_2, type=BoxProperty.UNMARKED):
+    def add_rectangle(self, point_1, point_2, type=BoxType.UNMARKED):
         self.boxes_list.append(self.create_new_box((point_1, point_2), type))
 
     def get_coordinates(self):
@@ -257,78 +312,7 @@ class BoxesWithType(JsonSerializable):
         return self.boxes_list
 
 
-@dataclasses.dataclass
-class PieceProperties(JsonSerializable):
-    notation_type: str = NotationType()
-    number_of_pages: int = 1
-    mode_properties: dict = dataclasses.field(default_factory=dict)
-    base_image_path: str = dataclasses.field(default=None)
-    content: BoxesWithType = dataclasses.field(default=BoxesWithType())
-    version: str = "1.0"
-    composer: str = "姜夔"
-
-    @classmethod
-    def load(cls, data: dict) -> "Self":
-        def content_to_boxes_format(content):
-            content_list = []
-
-            idx = 0
-            while idx < len(content):
-                if content[idx]["box_type"] == BoxProperty.MUSIC:
-                    music_list = []
-                    lyrics_list = []
-
-                    while idx < len(content) and content[idx]["box_type"] == BoxProperty.MUSIC:
-                        music_list.append({
-                            "box_type": BoxProperty.MUSIC,
-                            "coordinates": content[idx]["notation_coordinates"],
-                            "annotation": content[idx]["notation_content"],
-                            "is_excluded_from_dataset": content[idx]["is_excluded_from_dataset"],
-                            "is_line_break": content[idx]["is_line_break"]
-                        })
-                        lyrics_list.append({
-                            "box_type": BoxProperty.LYRICS,
-                            "coordinates": content[idx]["text_coordinates"],
-                            "annotation": content[idx]["text_content"],
-                            "is_excluded_from_dataset": content[idx]["is_excluded_from_dataset"],
-                            "is_line_break": content[idx]["is_line_break"]
-                        })
-                        if content[idx]["is_line_break"] or idx == len(content)-1:
-                            content_list += music_list
-                            content_list += lyrics_list
-                            idx += 1
-                            break
-                        idx += 1
-                else:
-                    content_list.append({
-                                "box_type": content[idx]["box_type"],
-                                "coordinates": content[idx]["text_coordinates"],
-                                "annotation": content[idx]["text_content"],
-                                "is_excluded_from_dataset": content[idx]["is_excluded_from_dataset"],
-                                "is_line_break": content[idx]["is_line_break"]
-                            })
-                    idx += 1
-            return content_list
-
-        images = data["images"]
-        data["base_image_path"] = images[0]
-        data["number_of_pages"] = len(images)
-        del data["images"]
-
-        instance = super().load(data)
-        instance.content = BoxesWithType(content_to_boxes_format(data["content"]))
-        instance.mode_properties = instance.mode_properties
-
-        return instance
-
-    def dump(self) -> dict:
-        dictionary = dataclasses.asdict(self)
-        dictionary["content"] = dictionary["content"]["boxes_list"]
-        dictionary["mode_properties"] = self.mode_properties
-        return dictionary
-
-
-class ListCircle:
+class ListCycle:
     def __init__(self, l):
         self.list = l
         self.current_position = 0
@@ -355,7 +339,7 @@ class ListCircle:
             if idx < self.length:
                 self.current_position = idx
         except Exception as e:
-            print(f"Cannot set ListCircle index to {idx}, since it only contains {self.length} elements. {e}")
+            print(f"Cannot set ListCycle index to {idx}, since it only contains {self.length} elements. {e}")
 
     def get_current(self):
         try:
@@ -371,74 +355,15 @@ class ListCircle:
             pass
 
     def __repr__(self):
-        return f"ListCircle: {self.current_position} {self.list}"
+        return f"ListCycle: {self.current_position} {self.list}"
 
     def __len__(self):
         return self.length
 
 
-def is_point_in_rectangle(point, rectangle):
-    return (rectangle[0][0] <= point[0] <= rectangle[1][0] or rectangle[1][0] <= point[0] <= rectangle[0][0])\
-        and (rectangle[0][1] <= point[1] <= rectangle[1][1] or rectangle[1][1] <= point[1] <= rectangle[0][1])
-
-
-def is_rectangle_big_enough(rectangle):
-    return abs(rectangle[0][0] - rectangle[1][0]) > 5 and abs(rectangle[0][1] - rectangle[1][1]) > 5
-
-
-class SelectionMode:
+class BoxManipulationAction:
     NO_ACTION = "None"
     CREATE = "Create"
     MARK = "Mark"
     DELETE = "Delete"
     ANNOTATE = "Annotate"
-
-
-def get_class_variables(classname):
-    basic_list = vars(classname)
-    return [basic_list[key] for key in basic_list.keys() if
-            not callable(getattr(classname, key)) and not key.startswith("__")]
-
-
-def get_image_from_box_fixed_size(current_image, box):
-    (x1, y1), (x2, y2) = box
-    x1, x2 = min(x1, x2), max(x1, x2)
-    y1, y2 = min(y1, y2), max(y1, y2)
-
-    cropped_img = current_image[y1:y2, x1:x2]
-    blue, green, red = cv2.split(cropped_img)
-    cropped_img = cv2.merge((red, green, blue))
-    cropped_img = Image.fromarray(cropped_img)
-    return_img = Image.new(cropped_img.mode, (80, 80), (255, 255, 255))
-    return_img.paste(cropped_img, ((80 - cropped_img.size[0]) // 2, (80 - cropped_img.size[1]) // 2))
-    return ImageTk.PhotoImage(image=return_img)
-
-
-def get_image_from_box_ai_assistant(current_image, box):
-    (x1, y1), (x2, y2) = box
-    x1, x2 = min(x1, x2), max(x1, x2)
-    y1, y2 = min(y1, y2), max(y1, y2)
-
-    image = current_image[y1:y2, x1:x2]
-    image = 255 - image
-    image = cv2.resize(image, (60, 60), interpolation=cv2.INTER_NEAREST)
-    image = cv2.copyMakeBorder(image, 5, 5, 5, 5, cv2.BORDER_CONSTANT)
-    image = 255 - image
-    return image
-
-
-def get_image_from_box(current_image, box):
-    (x1, y1), (x2, y2) = box
-    x1, x2 = min(x1, x2), max(x1, x2)
-    y1, y2 = min(y1, y2), max(y1, y2)
-
-    cropped_img = current_image[y1:y2, x1:x2, :]
-    return cropped_img
-
-
-def open_file_as_tk_image(file_path):
-    button_img = PIL.Image.open(file_path)
-    # cropped_img = cropped_img.resize((40, 40))
-    return ImageTk.PhotoImage(image=button_img)
-
-

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Song Dynasty Notation Music Piece",
-  "description": "Digital representation of a Song dynasty music piece (this includes Lülüpu, Gongchepu and Suzipu notations)",
+  "title": "Monophonic Chinese Notation Music Format",
+  "description": "Digital representation of a Chinese music piece (this includes Lülüpu, Gongchepu and Suzipu notations)",
   "type": "object",
   "properties": {
     "version": {
@@ -9,13 +9,8 @@
       "type": "string"
     },
     "notation_type": {
-      "description": "The notation type the piece uses, it must be either 'Suzipu', 'Lvlvpu' or 'Gongchepu'.",
-      "type": "string",
-      "enum": [
-        "Suzipu",
-        "Lvlvpu",
-        "Gongchepu"
-      ]
+      "description": "The notation type the piece uses.",
+      "type": "string"
     },
     "composer": {
       "description": "The piece's composer.",
@@ -23,28 +18,7 @@
     },
     "mode_properties": {
       "description": "The properties referring to the mode of the piece.",
-      "type": "object",
-      "properties": {
-        "gong_lvlv": {
-          "description": "The Lülü pitch corresponding to the mode's 宫.",
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 10
-        },
-        "final_note": {
-          "description": "The mode's final note, must be either '宫', '商', '角', '变', '徵', '羽', or '闰'",
-          "type": "string",
-          "enum": [
-            "宫",
-            "商",
-            "角",
-            "变",
-            "徵",
-            "羽",
-            "闰"
-          ]
-        }
-      }
+      "type": "object"
     },
     "images": {
       "description": "This field contains the list of relative paths to the image files belonging to the piece in the right order.",
@@ -78,7 +52,7 @@
             "type": "boolean"
           },
           "is_line_break": {
-            "description": "If true, the box is taken to be the last box before a column break.",
+            "description": "If true, a column break occurs directly after this box.",
             "type": "boolean"
           },
           "text_coordinates": {
@@ -98,7 +72,7 @@
             }
           },
           "text_content": {
-            "description": "The textual content of the box. A text-based box may contain up to one Chinese character.",
+            "description": "The textual content of the box. A text-based box should contain up to one character and optionally a punctuation mark.",
             "type": "string"
           },
           "notation_coordinates": {
@@ -118,8 +92,8 @@
             }
           },
           "notation_content": {
-            "description": "The notational content of the box. A notational box may contain a suzipu-describing string like '0;'. This should only be filled for boxes of type 'Music'.",
-            "type": "string"
+            "description": "The notational content of the box. This should only be filled for boxes of type 'Music'.",
+            "type": "object"
           }
         },
         "required": [

@@ -10,43 +10,43 @@ from src.fingering import Fingering
 
 @dataclasses.dataclass
 class GongcheMelodySymbol:
-    HE: str = "0"
-    XIA_SI: str = "1"
-    SI: str = "2"
-    XIA_YI: str = "3"
-    YI: str = "4"
-    SHANG: str = "5"
-    GOU: str = "6"
-    CHE: str = "7"
-    XIA_GONG: str = "8"
-    GONG: str = "9"
-    XIA_FAN: str = "A"
-    FAN: str = "B"
-    LIU: str = "C"
-    XIA_WU: str = "D"
-    WU: str = "E"
-    GAO_WU: str = "F"
+    HE: str = "HE"
+    XIA_SI: str = "XIA_SI"
+    SI: str = "SI"
+    XIA_YI: str = "XIA_YI"
+    YI: str = "YI"
+    SHANG: str = "SHANG"
+    GOU: str = "GOU"
+    CHE: str = "CHE"
+    XIA_GONG: str = "XIA_GONG"
+    GONG: str = "GONG"
+    XIA_FAN: str = "XIA_FAN"
+    FAN: str = "FAN"
+    LIU: str = "LIU"
+    XIA_WU: str = "XIA_WU"
+    WU: str = "WU"
+    GAO_WU: str = "GAO_WU"
 
     @classmethod
     def to_lvlv(cls, symbol):
         try:
             return {
-                "0": "黃",
-                "1": "大",
-                "2": "太",
-                "3": "夾",
-                "4": "姑",
-                "5": "仲",
-                "6": "蕤",
-                "7": "林",
-                "8": "夷",
-                "9": "南",
-                "A": "無",
-                "B": "應",
-                "C": "清黃",
-                "D": "清大",
-                "E": "清太",
-                "F": "清夾",
+                GongcheMelodySymbol.HE: "黃",
+                GongcheMelodySymbol.XIA_SI: "大",
+                GongcheMelodySymbol.SI: "太",
+                GongcheMelodySymbol.XIA_YI: "夾",
+                GongcheMelodySymbol.YI: "姑",
+                GongcheMelodySymbol.SHANG: "仲",
+                GongcheMelodySymbol.GOU: "蕤",
+                GongcheMelodySymbol.CHE: "林",
+                GongcheMelodySymbol.XIA_GONG: "夷",
+                GongcheMelodySymbol.GONG: "南",
+                GongcheMelodySymbol.XIA_FAN: "無",
+                GongcheMelodySymbol.FAN: "應",
+                GongcheMelodySymbol.LIU: "清黃",
+                GongcheMelodySymbol.XIA_WU: "清大",
+                GongcheMelodySymbol.WU: "清太",
+                GongcheMelodySymbol.GAO_WU: "清夾",
             }[symbol]
         except KeyError:
             return "INVALID"
@@ -55,22 +55,22 @@ class GongcheMelodySymbol:
     def to_gongche(cls, symbol):
         try:
             return {
-                "0": "合",
-                "1": "下四",
-                "2": "四",
-                "3": "下一",
-                "4": "一",
-                "5": "上",
-                "6": "勾",
-                "7": "尺",
-                "8": "下工",
-                "9": "工",
-                "A": "下凡",
-                "B": "凡",
-                "C": "六",
-                "D": "下五",
-                "E": "五",
-                "F": "高五",
+                GongcheMelodySymbol.HE: "合",
+                GongcheMelodySymbol.XIA_SI: "下四",
+                GongcheMelodySymbol.SI: "四",
+                GongcheMelodySymbol.XIA_YI: "下一",
+                GongcheMelodySymbol.YI: "一",
+                GongcheMelodySymbol.SHANG: "上",
+                GongcheMelodySymbol.GOU: "勾",
+                GongcheMelodySymbol.CHE: "尺",
+                GongcheMelodySymbol.XIA_GONG: "下工",
+                GongcheMelodySymbol.GONG: "工",
+                GongcheMelodySymbol.XIA_FAN: "下凡",
+                GongcheMelodySymbol.FAN: "凡",
+                GongcheMelodySymbol.LIU: "六",
+                GongcheMelodySymbol.XIA_WU: "下五",
+                GongcheMelodySymbol.WU: "五",
+                GongcheMelodySymbol.GAO_WU: "高五"
             }[symbol]
         except KeyError:
             return "INVALID"
@@ -79,22 +79,22 @@ class GongcheMelodySymbol:
     def to_index(cls, symbol):
         try:
             return {
-                "0": 0,
-                "1": 1,
-                "2": 2,
-                "3": 3,
-                "4": 4,
-                "5": 5,
-                "6": 6,
-                "7": 7,
-                "8": 8,
-                "9": 9,
-                "A": 10,
-                "B": 11,
-                "C": 12,
-                "D": 13,
-                "E": 14,
-                "F": 15,
+                GongcheMelodySymbol.HE: 0,
+                GongcheMelodySymbol.XIA_SI: 1,
+                GongcheMelodySymbol.SI: 2,
+                GongcheMelodySymbol.XIA_YI: 3,
+                GongcheMelodySymbol.YI: 4,
+                GongcheMelodySymbol.SHANG: 5,
+                GongcheMelodySymbol.GOU: 6,
+                GongcheMelodySymbol.CHE: 7,
+                GongcheMelodySymbol.XIA_GONG: 8,
+                GongcheMelodySymbol.GONG: 9,
+                GongcheMelodySymbol.XIA_FAN: 10,
+                GongcheMelodySymbol.FAN: 11,
+                GongcheMelodySymbol.LIU: 12,
+                GongcheMelodySymbol.XIA_WU: 13,
+                GongcheMelodySymbol.WU: 14,
+                GongcheMelodySymbol.GAO_WU: 15
             }[symbol]
         except KeyError:
             return "INVALID"
@@ -233,8 +233,10 @@ def tone_inventory_convert_pitch(gong_lvlv, pitch: GongcheMelodySymbol):
         print(f"Error! Incompatible symbol {pitch} according to tone inventory {tone_inventory}.")
         #raise RuntimeError(f"Error! Incompatible symbol {pitch} according to tone inventory {gong_lvlv}.")
 
+    if pitch == None:
+        return None
     # Here, we flip the order, because for Nanlüdiao we need the diatonic steps
-    if pitch == GongcheMelodySymbol.HE:
+    elif pitch == GongcheMelodySymbol.HE:
         #if gong_lvlv[0] is not None:
         return pitch
     elif pitch == GongcheMelodySymbol.XIA_SI or pitch == GongcheMelodySymbol.SI:
@@ -315,13 +317,8 @@ class GongdiaoMode:
     def convert_pitches_in_list(self, original_list):
         new_list = []
         for idx in range(len(original_list)):
-            new_char = ""
-            for char in original_list[idx]:
-                if char in dataclasses.astuple(GongcheMelodySymbol()):
-                    new_char += self.convert_pitch(char)
-                else:
-                    new_char += char
-            new_list.append(new_char)
+            original_list[idx]["pitch"] = self.convert_pitch(original_list[idx]["pitch"])
+            new_list.append(original_list[idx])
         return new_list
 
     def get_properties(self):
@@ -752,6 +749,7 @@ class AdditionalInfoFrame:
 
         self.mode_statistics_frame.grid(row=0, column=0, padx=5, pady=5)
         self.display_frame.get_frame().grid(row=0, column=1, padx=5, pady=5)
+        self.set_state(False)
 
     def set_state(self, boolean):
         self.statistics_frame.set_state(boolean)
@@ -805,12 +803,12 @@ class SuzipuMelodySymbol:
 
 @dataclasses.dataclass
 class SuzipuAdditionalSymbol:
-    ADD_DA_DUN: str = ":"
-    ADD_XIAO_ZHU: str = "."
-    ADD_DING_ZHU: str = "#"
-    ADD_DA_ZHU: str = ";"
-    ADD_ZHE: str = "z"
-    ADD_YE: str = "y"
+    ADD_DA_DUN: str = "DA_DUN"
+    ADD_XIAO_ZHU: str = "XIAO_ZHU"
+    ADD_DING_ZHU: str = "DING_ZHU"
+    ADD_DA_ZHU: str = "DA_ZHU"
+    ADD_ZHE: str = "ZHE"
+    ADD_YE: str = "YE"
 
 
 def _create_suzipu_images():

@@ -149,74 +149,142 @@ class Symbol:
 
 @dataclasses.dataclass
 class GongdiaoStep:
-    GONG: str = "宫"
-    SHANG: str = "商"
-    JUE: str = "角"
-    BIAN: str = "变"
-    ZHI: str = "徵"
-    YU: str = "羽"
-    RUN: str = "闰"
+    GONG: str = "GONG"
+    SHANG: str = "SHANG"
+    JUE: str = "JUE"
+    BIAN: str = "BIAN"
+    ZHI: str = "ZHI"
+    YU: str = "YU"
+    RUN: str = "RUN"
+
+    @classmethod
+    def to_name(cls, gongdiaostep):
+        try:
+            return {GongdiaoStep.GONG: "宫",
+             GongdiaoStep.SHANG: "商",
+             GongdiaoStep.JUE: "角",
+             GongdiaoStep.BIAN: "变",
+             GongdiaoStep.ZHI: "徵",
+             GongdiaoStep.YU: "羽",
+             GongdiaoStep.RUN: "闰"}[gongdiaostep]
+        except KeyError:
+            return "INVALID"
+
+    @classmethod
+    def from_name(cls, gongdiaostep):
+        try:
+            return {"宫": GongdiaoStep.GONG,
+                    "商": GongdiaoStep.SHANG,
+                    "角": GongdiaoStep.JUE,
+                    "变": GongdiaoStep.BIAN,
+                    "徵": GongdiaoStep.ZHI,
+                    "羽": GongdiaoStep.YU,
+                    "闰": GongdiaoStep.RUN}[gongdiaostep]
+        except KeyError:
+            return GongdiaoStep.GONG
 
 
 @dataclasses.dataclass
 class Lvlv:
-    HUANG_ZHONG: int = 0
-    DA_LV: int = 1
-    TAI_CU: int = 2
-    JIA_ZHONG: int = 3
-    GU_XIAN: int = 4
-    ZHONG_LV: int = 5
-    RUI_BIN: int = 6
-    LIN_ZHONG: int = 7
-    YI_ZE: int = 8
-    NAN_LV: int = 9
-    WU_YI: int = 10
-    YING_ZHONG: int = 11
+    HUANGZHONG: str = "HUANGZHONG"
+    DALV: str = "DALV"
+    TAICU: str = "TAICU"
+    JIAZHONG: str = "JIAZHONG"
+    GUXIAN: str = "GUXIAN"
+    ZHONGLV: str = "ZHONGLV"
+    RUIBIN: str = "RUIBIN"
+    LINZHONG: str = "LINZHONG"
+    YIZE: str = "YIZE"
+    NANLV: str = "NANLV"
+    WUYI: str = "WUYI"
+    YINGZHONG: str = "YINGZHONG"
 
     @classmethod
-    def to_string(cls, lvlv):
+    def to_name(cls, lvlv):
         try:
             return {
-                cls.HUANG_ZHONG: "黄钟",
-                cls.DA_LV: "大吕",
-                cls.TAI_CU: "太簇",
-                cls.JIA_ZHONG: "夹钟",
-                cls.GU_XIAN: "姑洗",
-                cls.ZHONG_LV: "仲吕",
-                cls.RUI_BIN: "蕤宾",
-                cls.LIN_ZHONG: "林钟",
-                cls.YI_ZE: "夷则",
-                cls.NAN_LV: "南吕",
-                cls.WU_YI: "无射",
-                cls.YING_ZHONG: "应钟"
+                cls.HUANGZHONG: "黄钟",
+                cls.DALV: "大吕",
+                cls.TAICU: "太簇",
+                cls.JIAZHONG: "夹钟",
+                cls.GUXIAN: "姑洗",
+                cls.ZHONGLV: "仲吕",
+                cls.RUIBIN: "蕤宾",
+                cls.LINZHONG: "林钟",
+                cls.YIZE: "夷则",
+                cls.NANLV: "南吕",
+                cls.WUYI: "无射",
+                cls.YINGZHONG: "应钟"
             }[lvlv]
         except KeyError:
-            print(f"'{lvlv}' is not a valid lülü index, it must be between 0 and 11.")
+            print(f"'{lvlv}' is not a valid lülü.")
             return "INVALID"
 
     @classmethod
-    def from_string(cls, string):
+    def from_name(cls, string):
         try:
             return {
-                "黄钟": cls.HUANG_ZHONG,
-                "大吕": cls.DA_LV,
-                "太簇": cls.TAI_CU,
-                "夹钟": cls.JIA_ZHONG,
-                "姑洗": cls.GU_XIAN,
-                "仲吕": cls.ZHONG_LV,
-                "蕤宾": cls.RUI_BIN,
-                "林钟": cls.LIN_ZHONG,
-                "夷则": cls.YI_ZE,
-                "南吕": cls.NAN_LV,
-                "无射": cls.WU_YI,
-                "应钟": cls.YING_ZHONG,
+                "黄钟": cls.HUANGZHONG,
+                "大吕": cls.DALV,
+                "太簇": cls.TAICU,
+                "夹钟": cls.JIAZHONG,
+                "姑洗": cls.GUXIAN,
+                "仲吕": cls.ZHONGLV,
+                "蕤宾": cls.RUIBIN,
+                "林钟": cls.LINZHONG,
+                "夷则": cls.YIZE,
+                "南吕": cls.NANLV,
+                "无射": cls.WUYI,
+                "应钟": cls.YINGZHONG,
             }[string]
         except KeyError:
-            print(f"'{string}' is not a valid lülü string")
-            return cls.HUANG_ZHONG
+            print(f"'{string}' is not a valid lülü name")
+            return cls.HUANGZHONG
+
+    @classmethod
+    def to_int(cls, lvlv):
+        try:
+            return {
+                cls.HUANGZHONG: 1,
+                cls.DALV: 2,
+                cls.TAICU: 3,
+                cls.JIAZHONG: 4,
+                cls.GUXIAN: 5,
+                cls.ZHONGLV: 6,
+                cls.RUIBIN: 7,
+                cls.LINZHONG: 8,
+                cls.YIZE: 9,
+                cls.NANLV: 10,
+                cls.WUYI: 11,
+                cls.YINGZHONG: 12,
+            }[lvlv]
+        except KeyError:
+            print(f"'{lvlv}' is not a valid lülü")
+            return 0
+
+    @classmethod
+    def from_int(cls, int):
+        try:
+            return {
+                0: cls.HUANGZHONG,
+                1: cls.DALV,
+                2: cls.TAICU,
+                3: cls.JIAZHONG,
+                4: cls.GUXIAN,
+                5: cls.ZHONGLV,
+                6: cls.RUIBIN,
+                7: cls.LINZHONG,
+                8: cls.YIZE,
+                9: cls.NANLV,
+                10: cls.WUYI,
+                11: cls.YINGZHONG,
+            }[int]
+        except KeyError:
+            print(f"'{int}' is not a valid lülü int")
+            return cls.HUANGZHONG
 
 
-def get_tone_inventory(lvlv_idx):
+def get_tone_inventory(lvlv):
     def rotate_list_right(l, idx):
         return [l[(index - idx + len(l)) % len(l)] for index in range(len(l))]
 
@@ -224,7 +292,7 @@ def get_tone_inventory(lvlv_idx):
         return l + l[0:4]
 
     huang_zhong_gong = ["宫", None, "商", None, "角", None, "变", "徵", None, "羽", None, "闰"]
-    return extend_tone_inventory(rotate_list_right(huang_zhong_gong, lvlv_idx))
+    return extend_tone_inventory(rotate_list_right(huang_zhong_gong, Lvlv.to_int(lvlv)))
 
 
 def tone_inventory_convert_pitch(gong_lvlv, pitch: GongcheMelodySymbol):
@@ -293,7 +361,7 @@ def tone_inventory_check_pitch(gong_lvlv, pitch: GongcheMelodySymbol):
 
 
 class GongdiaoMode:
-    def __init__(self, name, chinese_name, tone_inventory: int, final_note: str):
+    def __init__(self, name, chinese_name, tone_inventory: str, final_note: str):
         self.name = name
         self.chinese_name = chinese_name
         self.gong_lvlv = tone_inventory
@@ -327,50 +395,50 @@ class GongdiaoMode:
 
 @dataclasses.dataclass
 class GongdiaoModeList:
-    BAN_SHE_DIAO: GongdiaoMode = GongdiaoMode("Ban She Diao", "般涉调", Lvlv.HUANG_ZHONG, GongdiaoStep.YU)
-    DA_SHI_JUE: GongdiaoMode = GongdiaoMode("Da Shi Jue", "大食角", Lvlv.HUANG_ZHONG, GongdiaoStep.RUN)
-    ZHENG_GONG : GongdiaoMode= GongdiaoMode("Zheng Gong", "正宫", Lvlv.HUANG_ZHONG, GongdiaoStep.GONG)
-    DA_SHI_DIAO: GongdiaoMode = GongdiaoMode("Da Shi Diao", "大食调", Lvlv.HUANG_ZHONG, GongdiaoStep.SHANG)
+    BAN_SHE_DIAO: GongdiaoMode = GongdiaoMode("Ban She Diao", "般涉调", Lvlv.HUANGZHONG, GongdiaoStep.YU)
+    DA_SHI_JUE: GongdiaoMode = GongdiaoMode("Da Shi Jue", "大食角", Lvlv.HUANGZHONG, GongdiaoStep.RUN)
+    ZHENG_GONG : GongdiaoMode= GongdiaoMode("Zheng Gong", "正宫", Lvlv.HUANGZHONG, GongdiaoStep.GONG)
+    DA_SHI_DIAO: GongdiaoMode = GongdiaoMode("Da Shi Diao", "大食调", Lvlv.HUANGZHONG, GongdiaoStep.SHANG)
 
-    HUANG_ZHONG_JUE: GongdiaoMode = GongdiaoMode("*Huang Zhong Jue", "黄钟角", Lvlv.HUANG_ZHONG, GongdiaoStep.JUE)
-    HUANG_ZHONG_ZHI: GongdiaoMode = GongdiaoMode("*Huang Zhong Zhi", "黄钟徵", Lvlv.HUANG_ZHONG, GongdiaoStep.ZHI)
+    HUANG_ZHONG_JUE: GongdiaoMode = GongdiaoMode("*Huang Zhong Jue", "黄钟角", Lvlv.HUANGZHONG, GongdiaoStep.JUE)
+    HUANG_ZHONG_ZHI: GongdiaoMode = GongdiaoMode("*Huang Zhong Zhi", "黄钟徵", Lvlv.HUANGZHONG, GongdiaoStep.ZHI)
 
-    GAO_BAN_SHE_DIAO: GongdiaoMode = GongdiaoMode("Gao Ban She Diao", "高般涉调", Lvlv.DA_LV, GongdiaoStep.YU)
-    GAO_DA_SHI_JUE: GongdiaoMode = GongdiaoMode("Gao Da Shi Jue", "高大食角", Lvlv.DA_LV, GongdiaoStep.RUN)
-    GAO_GONG: GongdiaoMode = GongdiaoMode("Gao Gong", "高宫", Lvlv.DA_LV, GongdiaoStep.GONG)
-    GAO_DA_SHI_DIAO: GongdiaoMode = GongdiaoMode("Gao Da Shi Diao", "高大食调", Lvlv.DA_LV, GongdiaoStep.SHANG)
+    GAO_BAN_SHE_DIAO: GongdiaoMode = GongdiaoMode("Gao Ban She Diao", "高般涉调", Lvlv.DALV, GongdiaoStep.YU)
+    GAO_DA_SHI_JUE: GongdiaoMode = GongdiaoMode("Gao Da Shi Jue", "高大食角", Lvlv.DALV, GongdiaoStep.RUN)
+    GAO_GONG: GongdiaoMode = GongdiaoMode("Gao Gong", "高宫", Lvlv.DALV, GongdiaoStep.GONG)
+    GAO_DA_SHI_DIAO: GongdiaoMode = GongdiaoMode("Gao Da Shi Diao", "高大食调", Lvlv.DALV, GongdiaoStep.SHANG)
 
-    ZHONG_LV_DIAO: GongdiaoMode = GongdiaoMode("Zhong Lü Diao", "中吕调", Lvlv.JIA_ZHONG, GongdiaoStep.YU)
-    SHUANG_JUE: GongdiaoMode = GongdiaoMode("Shuang Jue", "双角", Lvlv.JIA_ZHONG, GongdiaoStep.RUN)
-    ZHONG_LV_GONG: GongdiaoMode = GongdiaoMode("Zhong Lü Gong", "中吕宫", Lvlv.JIA_ZHONG, GongdiaoStep.GONG)
-    SHUANG_DIAO: GongdiaoMode = GongdiaoMode("Shuang Diao", "双调", Lvlv.JIA_ZHONG, GongdiaoStep.SHANG)
+    ZHONG_LV_DIAO: GongdiaoMode = GongdiaoMode("Zhong Lü Diao", "中吕调", Lvlv.JIAZHONG, GongdiaoStep.YU)
+    SHUANG_JUE: GongdiaoMode = GongdiaoMode("Shuang Jue", "双角", Lvlv.JIAZHONG, GongdiaoStep.RUN)
+    ZHONG_LV_GONG: GongdiaoMode = GongdiaoMode("Zhong Lü Gong", "中吕宫", Lvlv.JIAZHONG, GongdiaoStep.GONG)
+    SHUANG_DIAO: GongdiaoMode = GongdiaoMode("Shuang Diao", "双调", Lvlv.JIAZHONG, GongdiaoStep.SHANG)
 
-    ZHENG_PING_DIAO: GongdiaoMode = GongdiaoMode("Zheng Ping Diao", "正平调", Lvlv.ZHONG_LV, GongdiaoStep.YU)
-    XIAO_SHI_JUE: GongdiaoMode = GongdiaoMode("Xiao Shi Jue", "小食角", Lvlv.ZHONG_LV, GongdiaoStep.RUN)
-    DAO_GONG: GongdiaoMode = GongdiaoMode("Dao Gong", "道宫", Lvlv.ZHONG_LV, GongdiaoStep.GONG)
-    XIAO_SHI_DIAO: GongdiaoMode = GongdiaoMode("Xiao Shi Diao", "小食调", Lvlv.ZHONG_LV, GongdiaoStep.SHANG)
+    ZHENG_PING_DIAO: GongdiaoMode = GongdiaoMode("Zheng Ping Diao", "正平调", Lvlv.ZHONGLV, GongdiaoStep.YU)
+    XIAO_SHI_JUE: GongdiaoMode = GongdiaoMode("Xiao Shi Jue", "小食角", Lvlv.ZHONGLV, GongdiaoStep.RUN)
+    DAO_GONG: GongdiaoMode = GongdiaoMode("Dao Gong", "道宫", Lvlv.ZHONGLV, GongdiaoStep.GONG)
+    XIAO_SHI_DIAO: GongdiaoMode = GongdiaoMode("Xiao Shi Diao", "小食调", Lvlv.ZHONGLV, GongdiaoStep.SHANG)
 
-    NAN_LV_DIAO: GongdiaoMode = GongdiaoMode("Nan Lü Diao", "南吕调", Lvlv.LIN_ZHONG, GongdiaoStep.YU)  # also 高平调
-    XIE_ZHI_JUE: GongdiaoMode = GongdiaoMode("Xie Zhi Jue", "歇指角", Lvlv.LIN_ZHONG, GongdiaoStep.RUN)
-    NAN_LV_GONG: GongdiaoMode = GongdiaoMode("Nan Lü Gong", "南吕宫", Lvlv.LIN_ZHONG, GongdiaoStep.GONG)
-    XIE_ZHI_DIAO: GongdiaoMode = GongdiaoMode("Xie Zhi Diao", "歇指调", Lvlv.LIN_ZHONG, GongdiaoStep.SHANG)
+    NAN_LV_DIAO: GongdiaoMode = GongdiaoMode("Nan Lü Diao", "南吕调", Lvlv.LINZHONG, GongdiaoStep.YU)  # also 高平调
+    XIE_ZHI_JUE: GongdiaoMode = GongdiaoMode("Xie Zhi Jue", "歇指角", Lvlv.LINZHONG, GongdiaoStep.RUN)
+    NAN_LV_GONG: GongdiaoMode = GongdiaoMode("Nan Lü Gong", "南吕宫", Lvlv.LINZHONG, GongdiaoStep.GONG)
+    XIE_ZHI_DIAO: GongdiaoMode = GongdiaoMode("Xie Zhi Diao", "歇指调", Lvlv.LINZHONG, GongdiaoStep.SHANG)
 
-    XIAN_LV_DIAO: GongdiaoMode = GongdiaoMode("Xian Lü Diao", "仙吕调", Lvlv.YI_ZE, GongdiaoStep.YU)
-    SHANG_JUE: GongdiaoMode = GongdiaoMode("Shang Jue", "商角", Lvlv.YI_ZE, GongdiaoStep.RUN)
-    XIAN_LV_GONG: GongdiaoMode = GongdiaoMode("Xian Lü Gong", "仙吕宫", Lvlv.YI_ZE, GongdiaoStep.GONG)
-    SHANG_DIAO: GongdiaoMode = GongdiaoMode("Shang Diao", "商调", Lvlv.YI_ZE, GongdiaoStep.SHANG)
+    XIAN_LV_DIAO: GongdiaoMode = GongdiaoMode("Xian Lü Diao", "仙吕调", Lvlv.YIZE, GongdiaoStep.YU)
+    SHANG_JUE: GongdiaoMode = GongdiaoMode("Shang Jue", "商角", Lvlv.YIZE, GongdiaoStep.RUN)
+    XIAN_LV_GONG: GongdiaoMode = GongdiaoMode("Xian Lü Gong", "仙吕宫", Lvlv.YIZE, GongdiaoStep.GONG)
+    SHANG_DIAO: GongdiaoMode = GongdiaoMode("Shang Diao", "商调", Lvlv.YIZE, GongdiaoStep.SHANG)
 
-    HUANG_ZHONG_DIAO: GongdiaoMode = GongdiaoMode("Huang Zhong Diao", "黄钟调", Lvlv.WU_YI, GongdiaoStep.YU)
-    YUE_JUE: GongdiaoMode = GongdiaoMode("Yue Jue", "越角", Lvlv.WU_YI, GongdiaoStep.RUN)
-    HUANG_ZHONG_GONG: GongdiaoMode = GongdiaoMode("Huang Zhong Gong", "黄钟宫", Lvlv.WU_YI, GongdiaoStep.GONG)
-    YUE_DIAO: GongdiaoMode = GongdiaoMode("Yue Diao", "越调", Lvlv.WU_YI, GongdiaoStep.SHANG)
+    HUANG_ZHONG_DIAO: GongdiaoMode = GongdiaoMode("Huang Zhong Diao", "黄钟调", Lvlv.WUYI, GongdiaoStep.YU)
+    YUE_JUE: GongdiaoMode = GongdiaoMode("Yue Jue", "越角", Lvlv.WUYI, GongdiaoStep.RUN)
+    HUANG_ZHONG_GONG: GongdiaoMode = GongdiaoMode("Huang Zhong Gong", "黄钟宫", Lvlv.WUYI, GongdiaoStep.GONG)
+    YUE_DIAO: GongdiaoMode = GongdiaoMode("Yue Diao", "越调", Lvlv.WUYI, GongdiaoStep.SHANG)
 
     @classmethod
     def from_string(cls, string):
         for mode in dataclasses.astuple(cls()):
             if string == mode.name or string == mode.chinese_name:
                 return mode
-        NO_MODE = GongdiaoMode("!!! NO MODE !!!", "！！！没有宫调！！！", Lvlv.HUANG_ZHONG, GongdiaoStep.GONG)
+        NO_MODE = GongdiaoMode("!!! NO MODE !!!", "！！！没有宫调！！！", Lvlv.HUANGZHONG, GongdiaoStep.GONG)
         #print(f"Could not construct mode from string '{string}'. Returned {cls.NO_MODE.name} instead.")  # TODO: activate?
         return NO_MODE
 
@@ -384,7 +452,7 @@ class GongdiaoModeList:
                 return mode
 
         # otherwise, construct a name for it
-        return GongdiaoMode(f"{Lvlv.to_string(gong_lvlv)}均 -- final：{final_note}", f"{Lvlv.to_string(gong_lvlv)}均 -- final：{final_note}", gong_lvlv, final_note)
+        return GongdiaoMode(f"{Lvlv.to_name(gong_lvlv)}均 -- final：{final_note}", f"{Lvlv.to_name(gong_lvlv)}均 -- final：{final_note}", gong_lvlv, final_note)
 
 
 class DisplayNotesFrame:
@@ -600,9 +668,8 @@ class ModeSelectorFrame:
         self.frame = tk.LabelFrame(self.window_handle, text="Mode")
 
         self.mode_variable = mode_variable
-        self.mode_gong_lvlv = tk.IntVar()
-        self.mode_final_note = tk.StringVar()
-        self.mode_final_note.set("宫")
+        self.mode_gong_lvlv = tk.StringVar(self.frame, Lvlv.to_name(Lvlv.HUANGZHONG))
+        self.mode_final_note = tk.StringVar(self.frame, GongdiaoStep.to_name(GongdiaoStep.GONG))
 
         self.widgets = None
         self.get_mode_string = on_get_mode_string
@@ -631,11 +698,14 @@ class ModeSelectorFrame:
 
         def on_custom_mode():
             def execute_custom_mode_window():
+                lvlv_list = [Lvlv.to_name(lvlv) for lvlv in dataclasses.astuple(Lvlv())][1:]
+                final_note_list = [GongdiaoStep.to_name(step) for step in dataclasses.astuple(GongdiaoStep())][1:]
+
                 custom_mode_window = tk.Toplevel()
                 gong_lvlv_var = tk.StringVar()
-                gong_lvlv_var.set(Lvlv.to_string(Lvlv.HUANG_ZHONG))
+                gong_lvlv_var.set(Lvlv.to_name(Lvlv.HUANGZHONG))
                 final_note_var = tk.StringVar()
-                final_note_var.set(GongdiaoStep.GONG)
+                final_note_var.set(GongdiaoStep.to_name(GongdiaoStep.GONG))
                 exit_save_var = tk.BooleanVar()
                 exit_save_var.set(False)
 
@@ -643,8 +713,7 @@ class ModeSelectorFrame:
                     exit_save_var.set(True)
                     custom_mode_window.destroy()
 
-                lvlv_list = [Lvlv.to_string(lvlv) for lvlv in dataclasses.astuple(Lvlv())]
-                final_note_list = dataclasses.astuple(GongdiaoStep())
+
 
                 selection_frame = tk.Frame(custom_mode_window)
                 lvlv_label = tk.Label(selection_frame, text="Mode's 宫")
@@ -668,7 +737,7 @@ class ModeSelectorFrame:
             exit_save_var, gong_lvlv_string, final_note = execute_custom_mode_window()
 
             if exit_save_var:
-                gong_lvlv = Lvlv.from_string(gong_lvlv_string)
+                gong_lvlv = Lvlv.from_name(gong_lvlv_string)
 
                 mode = GongdiaoModeList.from_properties({"gong_lvlv": gong_lvlv, "final_note": final_note})
                 self.mode_variable.set(mode.name)

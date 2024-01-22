@@ -256,7 +256,10 @@ class BoxesWithType(JsonSerializable):
         self.boxes_list[idx]["box_type"] = type
 
     def set_index_annotation(self, idx, annotation):
-        self.boxes_list[idx]["annotation"] = annotation
+        try:
+            self.boxes_list[idx]["annotation"] = annotation
+        except TypeError:  # idx == None
+            pass
 
     def set_index_excluded(self, idx, boolean):
         self.boxes_list[idx]["is_excluded_from_dataset"] = boolean

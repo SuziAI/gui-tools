@@ -35,8 +35,6 @@ class NotationAnnotationFrame:
         self.first_musical_var.set(annotation["pitch"])
         self.second_musical_var.set(annotation["secondary"])
 
-
-
     def _create_frame(self):
         self.mode_selector = ModeSelectorFrame(self.frame, mode_variable=self.program_state.gui_state.tk_current_mode_string, on_get_mode_string=self.program_state.get_mode_string)
 
@@ -52,7 +50,12 @@ class NotationAnnotationFrame:
                                               relief="sunken", state="disabled")
 
         def update_annotation(*args):
-            annotation = {"pitch": self.first_musical_var.get(), "secondary": self.second_musical_var.get()}
+            def return_none_if_none(string):
+                if string == "None":
+                    return None
+                return string
+
+            annotation = {"pitch": return_none_if_none(self.first_musical_var.get()), "secondary": return_none_if_none(self.second_musical_var.get())}
             self.program_state.set_current_annotation(annotation)
             self.update_display()
 

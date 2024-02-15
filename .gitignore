@@ -16,3 +16,7 @@ omr_dataset
 notation_editor.py
 src/notation_editor_auxiliary.py
 *.json
+KuiSCIMA
+OUTPUT
+DEMO
+modify_corpus.py

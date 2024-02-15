@@ -4,7 +4,7 @@ from typing import Protocol
 
 
 @dataclasses.dataclass
-class NotationType:
+class NotationTypePlugins:
     def __init__(self):
         self.plugin_names = []
         self.plugin_paths = {}
@@ -20,7 +20,7 @@ class NotationType:
         except Exception as e:
             print(f"Could not read files from directory './src/plugins'. {e}")
 
-        print("PLUGINS:", self.plugin_paths)
+        print("PLUGINS:", self.plugin_names)
 
 
 #class NotationAnnotationFrameProtocol(Protocol):

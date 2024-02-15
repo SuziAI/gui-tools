@@ -245,18 +245,18 @@ class Lvlv:
     def to_int(cls, lvlv):
         try:
             return {
-                cls.HUANGZHONG: 1,
-                cls.DALV: 2,
-                cls.TAICU: 3,
-                cls.JIAZHONG: 4,
-                cls.GUXIAN: 5,
-                cls.ZHONGLV: 6,
-                cls.RUIBIN: 7,
-                cls.LINZHONG: 8,
-                cls.YIZE: 9,
-                cls.NANLV: 10,
-                cls.WUYI: 11,
-                cls.YINGZHONG: 12,
+                cls.HUANGZHONG: 0,
+                cls.DALV: 1,
+                cls.TAICU: 2,
+                cls.JIAZHONG: 3,
+                cls.GUXIAN: 4,
+                cls.ZHONGLV: 5,
+                cls.RUIBIN: 6,
+                cls.LINZHONG: 7,
+                cls.YIZE: 8,
+                cls.NANLV: 9,
+                cls.WUYI: 10,
+                cls.YINGZHONG: 11,
             }[lvlv]
         except KeyError:
             print(f"'{lvlv}' is not a valid lülü")
@@ -385,8 +385,10 @@ class GongdiaoMode:
     def convert_pitches_in_list(self, original_list):
         new_list = []
         for idx in range(len(original_list)):
-            original_list[idx]["pitch"] = self.convert_pitch(original_list[idx]["pitch"])
-            new_list.append(original_list[idx])
+            if "secondary" in original_list[idx].keys():
+                new_list.append({"pitch": self.convert_pitch(original_list[idx]["pitch"]), "secondary": original_list[idx]["secondary"]})
+            else:
+                new_list.append({"pitch": self.convert_pitch(original_list[idx]["pitch"])})
         return new_list
 
     def get_properties(self):
@@ -397,7 +399,7 @@ class GongdiaoMode:
 class GongdiaoModeList:
     BAN_SHE_DIAO: GongdiaoMode = GongdiaoMode("Ban She Diao", "般涉调", Lvlv.HUANGZHONG, GongdiaoStep.YU)
     DA_SHI_JUE: GongdiaoMode = GongdiaoMode("Da Shi Jue", "大食角", Lvlv.HUANGZHONG, GongdiaoStep.RUN)
-    ZHENG_GONG : GongdiaoMode= GongdiaoMode("Zheng Gong", "正宫", Lvlv.HUANGZHONG, GongdiaoStep.GONG)
+    ZHENG_GONG: GongdiaoMode= GongdiaoMode("Zheng Gong", "正宫", Lvlv.HUANGZHONG, GongdiaoStep.GONG)
     DA_SHI_DIAO: GongdiaoMode = GongdiaoMode("Da Shi Diao", "大食调", Lvlv.HUANGZHONG, GongdiaoStep.SHANG)
 
     HUANG_ZHONG_JUE: GongdiaoMode = GongdiaoMode("*Huang Zhong Jue", "黄钟角", Lvlv.HUANGZHONG, GongdiaoStep.JUE)
@@ -444,15 +446,18 @@ class GongdiaoModeList:
 
     @classmethod
     def from_properties(cls, mode_properties):
-        gong_lvlv = mode_properties["gong_lvlv"]
-        final_note = mode_properties["final_note"]
+        try:
+            gong_lvlv = mode_properties["gong_lvlv"]
+            final_note = mode_properties["final_note"]
 
-        for mode in dataclasses.astuple(cls()):  # first, check if there is already a name stored for this mode
-            if mode.gong_lvlv == gong_lvlv and mode.final_note == final_note:
-                return mode
+            for mode in dataclasses.astuple(cls()):  # first, check if there is already a name stored for this mode
+                if mode.gong_lvlv == gong_lvlv and mode.final_note == final_note:
+                    return mode
 
-        # otherwise, construct a name for it
-        return GongdiaoMode(f"{Lvlv.to_name(gong_lvlv)}均 -- final：{final_note}", f"{Lvlv.to_name(gong_lvlv)}均 -- final：{final_note}", gong_lvlv, final_note)
+            # otherwise, construct a name for it
+            return GongdiaoMode(f"{Lvlv.to_name(gong_lvlv)}均 -- final：{final_note}", f"{Lvlv.to_name(gong_lvlv)}均 -- final：{final_note}", gong_lvlv, final_note)
+        except KeyError:
+            return GongdiaoModeList.ZHENG_GONG
 
 
 class DisplayNotesFrame:
@@ -651,8 +656,7 @@ class NoteFrames:
 
             self.scale_degree_vars_list[idx].set(scale_degree)
             self.suzipu_images_list[idx].config(image=self._suzipu_images[pitch])
-
-            self.scale_degree_label_list[idx].config(bg="aquamarine" if scale_degree == final_note else self._default_bg_color)
+            self.scale_degree_label_list[idx].config(bg="aquamarine" if scale_degree == GongdiaoStep.to_name(final_note) else self._default_bg_color)
 
     def set_state(self, boolean):
         state = "disabled"
@@ -668,8 +672,9 @@ class ModeSelectorFrame:
         self.frame = tk.LabelFrame(self.window_handle, text="Mode")
 
         self.mode_variable = mode_variable
-        self.mode_gong_lvlv = tk.StringVar(self.frame, Lvlv.to_name(Lvlv.HUANGZHONG))
-        self.mode_final_note = tk.StringVar(self.frame, GongdiaoStep.to_name(GongdiaoStep.GONG))
+        self.mode_gong_lvlv = tk.StringVar(self.frame, Lvlv.HUANGZHONG)
+        self.mode_final_note = tk.StringVar(self.frame, GongdiaoStep.GONG)
+        self.mode_display_frame = None
 
         self.widgets = None
         self.get_mode_string = on_get_mode_string
@@ -696,6 +701,28 @@ class ModeSelectorFrame:
             self.mode_gong_lvlv.set(mode.gong_lvlv)
             self.mode_final_note.set(mode.final_note)
 
+        def on_mode_info():
+            tid1 = None
+            tid2 = None
+            def execute_mode_display_window():
+                custom_mode_window = tk.Toplevel()
+                self.mode_display_frame = ModeDisplayFrame(custom_mode_window, self.mode_gong_lvlv, self.mode_final_note)
+                self.mode_display_frame.get_frame().pack()
+                self.mode_display_frame.update()
+                tid1 = self.mode_gong_lvlv.trace_add("write", self.mode_display_frame.update)
+                tid2 = self.mode_final_note.trace_add("write", self.mode_display_frame.update)
+                custom_mode_window.wait_window()
+                return
+
+            execute_mode_display_window()
+            self.mode_display_frame = None
+            if tid1:
+                self.mode_gong_lvlv.trace_remove("write", tid1)
+            if tid2:
+                self.mode_final_note.trace_remove("write", tid2)
+            tid1 = None
+            tid2 = None
+
         def on_custom_mode():
             def execute_custom_mode_window():
                 lvlv_list = [Lvlv.to_name(lvlv) for lvlv in dataclasses.astuple(Lvlv())][1:]
@@ -712,8 +739,6 @@ class ModeSelectorFrame:
                 def on_destroy_save_changes():
                     exit_save_var.set(True)
                     custom_mode_window.destroy()
-
-
 
                 selection_frame = tk.Frame(custom_mode_window)
                 lvlv_label = tk.Label(selection_frame, text="Mode's 宫")
@@ -744,17 +769,22 @@ class ModeSelectorFrame:
                 self.mode_gong_lvlv.set(mode.gong_lvlv)
                 self.mode_final_note.set(mode.final_note)
 
+                if self.mode_display_frame is not None:
+                    self.mode_display_frame.update()
+
         sub_frame = tk.Frame(self.frame)
         mode_names = [mode.name for mode in dataclasses.astuple(GongdiaoModeList())]
         mode_menu = tk.OptionMenu(sub_frame, self.mode_variable, "", *mode_names, command=on_update_mode_properties)
         infer_mode_button = tk.Button(sub_frame, text="Infer Mode from Segmentation Boxes", command=on_infer_mode)
         custom_mode_button = tk.Button(sub_frame, text="Custom Mode Picker", command=on_custom_mode)
+        display_mode_info_button = tk.Button(sub_frame, text="Mode Info...", command=on_mode_info)
         mode_menu.grid(row=0, column=0)
         infer_mode_button.grid(row=0, column=1)
         custom_mode_button.grid(row=0, column=2)
+        display_mode_info_button.grid(row=0, column=3)
         sub_frame.pack()
 
-        self.widgets = [mode_menu, infer_mode_button, custom_mode_button]
+        self.widgets = [mode_menu, infer_mode_button, custom_mode_button, display_mode_info_button]
 
     def set_state(self, boolean):
         state = "disabled"
@@ -768,17 +798,14 @@ class ModeSelectorFrame:
 
 
 class ModeDisplayFrame:
-    def __init__(self, window_handle, mode_variable, on_get_mode_string=lambda: None):
+    def __init__(self, window_handle, mode_gong_lvlv, mode_final_note):
         self.window_handle = window_handle
         self.frame = tk.LabelFrame(self.window_handle, text="Mode")
 
-        self.mode_variable = mode_variable
-        self.mode_gong_lvlv = tk.IntVar()
-        self.mode_final_note = tk.StringVar()
-        self.mode_final_note.set("宫")
+        self.mode_gong_lvlv = mode_gong_lvlv
+        self.mode_final_note = mode_final_note
 
         self.widgets = None
-        self.get_mode_string = on_get_mode_string
 
         self.note_frames = NoteFrames(self.frame)
 
@@ -787,20 +814,16 @@ class ModeDisplayFrame:
     def get_properties(self):
         return {"gong_lvlv": self.mode_gong_lvlv.get(), "final_note": self.mode_final_note.get()}
 
-    def set_properties(self, mode_properties):
-        self.mode_gong_lvlv.set(mode_properties["gong_lvlv"])
-        self.mode_final_note.set(mode_properties["final_note"])
-
     def _create_frame(self):
         zhuyin_label = tk.Label(self.frame, text="(Final is marked in cyan)")
         self.note_frames.get_frame().grid(row=0, column=0)
         zhuyin_label.grid(row=1, column=0)
 
-    def set_state(self, boolean):
-        pass
-
     def get_frame(self):
         return self.frame
+
+    def update(self, *args):
+        self.note_frames.update(GongdiaoModeList.from_properties(self.get_properties()))
 
 
 class AdditionalInfoFrame:

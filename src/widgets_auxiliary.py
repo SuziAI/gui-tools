@@ -1,9 +1,12 @@
 import dataclasses
+import importlib
 import tkinter as tk
 from tkinter import messagebox
 
 from src.auxiliary import get_class_variables, bgr_to_tkinter, box_property_to_color, BoxType, SetInt, \
     BoxManipulationAction
+from src.plugins import NotationTypePlugins
+from src.programstate import ProgramState
 
 
 def on_closing(window_handle):
@@ -131,9 +134,34 @@ class SelectionFrame:
         for idx, boxtype_button in enumerate(boxtype_buttons):
             boxtype_button.grid(row=0, column=idx)
 
-        frame1.grid(row=0, column=0, pady=5, padx=10)
-        frame2.grid(row=1, column=0, pady=5, padx=10)
+        frame1.grid(row=0, column=0, pady=4, padx=10)
+        frame2.grid(row=1, column=0, pady=4, padx=10)
 
+    def get_frame(self):
+        return self.frame
+
+
+class PiecePropertiesFrame:
+    def __init__(self, window_handle, program_state: ProgramState):
+        self.window_handle = window_handle
+        self.frame = tk.LabelFrame(self.window_handle, text="Piece Properties")
+        self.program_state = program_state
+        self.plugins = NotationTypePlugins()
+
+        self._create_frame()
+
+    def _create_frame(self):
+        def reset_musical_annotation(*args):
+            plugin_name = self.program_state.gui_state.tk_notation_plugin_selection.get().lower()
+            module = importlib.import_module(f"src.plugins.{plugin_name}")
+            self.program_state.fill_all_boxes_of_type(BoxType.MUSIC, module.EMPTY_ANNOTATION, constant_fill=True)
+
+
+        tk.Label(self.frame, text="Composer").grid(row=0, column=0)
+        tk.Entry(self.frame, textvariable=self.program_state.gui_state.tk_current_composer).grid(row=0, column=1)
+        tk.Label(self.frame, text="Notation").grid(row=1, column=0)
+        self.program_state.gui_state.tk_notation_plugin_selection.set("Suzipu")
+        tk.OptionMenu(self.frame, self.program_state.gui_state.tk_notation_plugin_selection, *self.plugins.plugin_names, command=reset_musical_annotation).grid(row=1, column=1)
     def get_frame(self):
         return self.frame
 

@@ -1,10 +1,10 @@
 import copy
 import dataclasses
+import importlib
 import json
 
 from pathlib import Path
 
-import PIL
 import cv2
 import os
 
@@ -14,21 +14,19 @@ from tkinter.filedialog import asksaveasfilename
 from tkinter.messagebox import showerror
 
 from PIL import ImageTk
-from PIL import Image
 
 from src.auxiliary import is_point_in_rectangle, Colors, \
     box_property_to_color, get_image_from_box_fixed_size, open_file_as_tk_image, \
     is_rectangle_big_enough, \
-    state_to_json, get_folder_contents, get_image_from_box_ai_assistant, BoxType, BoxesWithType, ListCycle, \
+    state_to_json, get_folder_contents, BoxType, BoxesWithType, ListCycle, \
     BoxManipulationAction
 from src.programstate import PieceProperties, GuiState, ProgramState
 from src.config import GO_INTO_ANNOTATION_MODE_IMAGE, INVALID_MODE_IMAGE
 from src.widgets_auxiliary import on_closing, IncrementDecrementFrame, PreviousNextFrame, \
-    SelectionFrame, SaveLoadFrame
+    SelectionFrame, SaveLoadFrame, PiecePropertiesFrame
 from src.widgets_annotation import AnnotationFrame
-from src.hr_segmentation_adapter import predict_boxes
 from src.plugins.suzipu_lvlvpu_gongchepu.common import GongdiaoModeList, DisplayNotesFrame
-from src.notes_to_image import notation_to_jianpu, notation_to_western, construct_metadata_image, vertical_composition, add_border, write_to_musicxml
+from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import common_notation_to_jianpu, common_notation_to_western, construct_metadata_image, vertical_composition, add_border, write_to_musicxml
 
 
 class MainWindow:
@@ -159,25 +157,25 @@ class MainWindow:
 
             mode = GongdiaoModeList.from_string(self.program_state.gui_state.tk_current_mode_string.get())
 
-            try:
-                music_list = mode.convert_pitches_in_list(music_list)
-            except TypeError:  # This happens when the chosen mode dows not match the piece
-                return None
-
             fingering = display_notes_frame.get_transposition()
 
+            plugin_name = self.program_state.gui_state.tk_notation_plugin_selection.get().lower()
+            module = importlib.import_module(f"src.plugins.{plugin_name}")
+
             if display_notes_frame.is_jianpu():
-                notation_img = notation_to_jianpu(self.program_state.gui_state.notation_resources.small_font,
-                                                  self.program_state.gui_state.notation_resources.jianpu_image_dict,
-                                                  music_list, lyrics_list,
-                                                  line_break_idxs,
-                                                  fingering)
+                notation_img = module.notation_to_jianpu(self.program_state.gui_state.notation_resources.small_font,
+                                                      self.program_state.gui_state.notation_resources.jianpu_image_dict,
+                                                      mode,
+                                                      music_list, lyrics_list,
+                                                      line_break_idxs,
+                                                      fingering)
             else:
-                notation_img = notation_to_western(self.program_state.gui_state.notation_resources.small_font,
-                                                   self.program_state.gui_state.notation_resources.western_image_dict,
-                                                   music_list, lyrics_list,
-                                                   line_break_idxs,
-                                                   fingering)
+                notation_img = module.notation_to_western(self.program_state.gui_state.notation_resources.small_font,
+                                                       self.program_state.gui_state.notation_resources.western_image_dict,
+                                                       mode,
+                                                       music_list, lyrics_list,
+                                                       line_break_idxs,
+                                                       fingering)
 
             return notation_img
 
@@ -277,10 +275,12 @@ class MainWindow:
             self.program_state.piece_properties.number_of_pages = self.program_state.gui_state.number_of_pages.get()
 
             self.program_state.piece_properties.mode_properties = annotation_frame.get_mode_properties()
+            self.program_state.piece_properties.composer = self.program_state.gui_state.tk_current_composer.get()
+            self.program_state.piece_properties.notation_type = self.program_state.gui_state.tk_notation_plugin_selection.get()
             new_program_state = copy.copy(self.program_state.piece_properties)
 
             try:
-                json_state = state_to_json(new_program_state)
+                json_state = state_to_json(new_program_state, self.program_state.gui_state)
             except AssertionError as e:
                 showerror("Error", message=str(e))
                 return
@@ -293,12 +293,12 @@ class MainWindow:
             if file_path:
                 with open(file_path, "w") as json_file:
                     image_list = []
-                    for idx in range(json_state["number_of_pages"]):
+                    for idx in range(self.program_state.gui_state.number_of_pages.get()):
                         image_list.append(os.path.relpath(self.program_state.gui_state.image_name_circle.get_nth_from_current(idx), start=os.path.dirname(file_path)))  # we must save the relative path without modifying the program state
 
-                    del json_state["base_image_path"]
-                    del json_state["number_of_pages"]
                     json_state["images"] = image_list
+                    keyorder = ['version', 'notation_type', 'composer', 'mode_properties', 'images', 'content']
+                    json_state = {k: json_state[k] for k in keyorder if k in json_state}
 
                     json.dump(json_state, json_file)
 
@@ -383,6 +383,8 @@ class MainWindow:
                     self.program_state.initialize_from_piece_properties(piece_properties)
                     right_increment_decrement_widget.set_counter(self.program_state.gui_state.number_of_pages.get())
                     self.program_state.gui_state.tk_current_mode_string.set(GongdiaoModeList.from_properties(self.program_state.piece_properties.mode_properties).name)
+                    self.program_state.gui_state.tk_notation_plugin_selection.set(json_contents["notation_type"])
+                    self.program_state.gui_state.tk_current_composer.set(json_contents["composer"])
 
                     annotation_frame.set_mode_properties(self.program_state.piece_properties.mode_properties)
 
@@ -397,7 +399,7 @@ class MainWindow:
         right_increment_decrement = right_increment_decrement_widget.get_frame()
         previous_next.grid(row=0, column=0)
 
-        right_increment_decrement.pack(pady=10)
+        right_increment_decrement.pack(pady=3)
         increment_decrement_subframe.grid(row=0, column=1)
 
         segmentation_frame = tk.LabelFrame(self.main_window, text="Segmentation and Order")
@@ -412,7 +414,7 @@ class MainWindow:
         segmentation_button.grid(row=0, column=0)
         infer_order_button.grid(row=0, column=1)
         segment_pages_individually_checkbutton.grid(row=1, column=0)
-        inner_frame.pack(padx=10, pady=10)
+        inner_frame.pack(padx=10, pady=3)
 
         save_load_buttons = SaveLoadFrame(self.main_window, on_save_image, on_new, on_save, on_save_text, on_load).get_frame()
         annotation_frame = AnnotationFrame(self.main_window, self.program_state)
@@ -493,17 +495,20 @@ class MainWindow:
             state = self.program_state.gui_state.tk_current_action.get() == BoxManipulationAction.ANNOTATE and selection_buttons.is_active and len(self.program_state.gui_state.type_to_cycle_dict[self.program_state.gui_state.tk_current_boxtype.get()].list) > 0
             annotation_frame.set_state(state)
 
-        selection_buttons = SelectionFrame(self.main_window, self.program_state.gui_state.tk_current_action, self.program_state.gui_state.tk_current_boxtype, on_click_annotate,
+        subframe = tk.Frame(self.main_window)
+        selection_buttons = SelectionFrame(subframe, self.program_state.gui_state.tk_current_action, self.program_state.gui_state.tk_current_boxtype, on_click_annotate,
                                            lambda: [on_activate_deactivate_annotation_frame(), annotation_frame.update_annotation()],
                                            lambda: [self.program_state.update_annotation_image_and_variables(), on_activate_deactivate_annotation_frame(), annotation_frame.update_annotation()])
+        piece_properties = PiecePropertiesFrame(subframe, self.program_state)
+        selection_buttons.get_frame().grid(row=0, column=0, padx=3)
+        piece_properties.get_frame().grid(row=0, column=1, padx=3)
+        save_load_buttons.grid(row=0, column=1, pady=3)
 
-        save_load_buttons.grid(row=0, column=1, pady=10)
+        prev_next_increment_frame.grid(row=1, column=1, padx=10, pady=3)
 
-        prev_next_increment_frame.grid(row=1, column=1, padx=10, pady=10)
-
-        segmentation_frame.grid(row=2, column=1, pady=10)
-        selection_buttons.get_frame().grid(row=4, column=1, pady=10)
-        annotation_frame.get_frame().grid(row=5, column=1, padx=10, pady=10)
+        segmentation_frame.grid(row=2, column=1, pady=3)
+        subframe.grid(row=4, column=1, pady=3)
+        annotation_frame.get_frame().grid(row=5, column=1, padx=10, pady=3)
 
         display_notes_frame.get_frame().grid(row=6, column=1)
 
@@ -518,7 +523,6 @@ class MainWindow:
         annotation_frame.set_image(self.program_state.gui_state.empty_image)
 
         self.main_window.mainloop()
-
 
 
 class OpenCvWindow:

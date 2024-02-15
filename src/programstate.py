@@ -7,21 +7,21 @@ import cv2
 from PIL import ImageTk
 
 from src.auxiliary import BoxType, JsonSerializable, SetInt, BoxesWithType, ListCycle, BoxManipulationAction, \
-    get_folder_contents, get_image_from_box_ai_assistant
+    get_folder_contents, get_image_from_box_ai_assistant, get_image_from_box
 from src.hr_segmentation_adapter import predict_boxes
-from src.notes_to_image import NotationResources
-from src.plugins import NotationType
+from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import NotationResources
+from src.plugins import NotationTypePlugins
 
 
 @dataclasses.dataclass
 class PieceProperties(JsonSerializable):
-    notation_type: str = NotationType()
+    notation_type: str = NotationTypePlugins()
     number_of_pages: int = 1
     mode_properties: dict = dataclasses.field(default_factory=dict)
     base_image_path: str = dataclasses.field(default=None)
     content: BoxesWithType = dataclasses.field(default=BoxesWithType())
-    version: str = "1.0"
-    composer: str = "姜夔"
+    version: str = "2.0"
+    composer: str = ""
 
     @classmethod
     def load(cls, data: dict) -> "Self":
@@ -130,6 +130,10 @@ class GuiState:
         self.tk_current_action = tk.StringVar(self.main_window, BoxManipulationAction.NO_ACTION)
         '''The currently selected box manipulation action'''
 
+        self.tk_current_composer = tk.StringVar(self.main_window, "")
+        '''The name of currently selected composer'''
+        self.tk_notation_plugin_selection = tk.StringVar(self.main_window, "")
+        '''The type of currently selected notation plugin'''
         self.tk_current_boxtype = tk.StringVar(self.main_window, dataclasses.astuple(BoxType())[0])
         '''The type of currently selected box'''
         self.tk_current_box_out_of_current_type = tk.StringVar(self.main_window, "")
@@ -175,6 +179,12 @@ class ProgramState:
         except Exception:
             return None
 
+    def get_current_local_annotation_index(self):
+        try:
+            return self.get_current_type_cycle().current_position
+        except Exception:
+            return None
+
     def get_current_annotation(self):
         index = self.get_current_annotation_index()
         if index is not None:
@@ -211,15 +221,16 @@ class ProgramState:
 
             self.gui_state.current_box_annotation = current_box_annotation
 
-    def fill_all_boxes_of_type(self, text: str):
+    def fill_all_boxes_of_type(self, box_type, iterable, constant_fill=False):
         if self.gui_state.tk_current_action.get() == BoxManipulationAction.ANNOTATE:
-            if self.gui_state.tk_current_boxtype.get() == BoxType.MUSIC:
-                for idx, box_index in enumerate(self.gui_state.type_to_cycle_dict[self.gui_state.tk_current_boxtype.get()].list):
-                    suzipu_list = text.replace(" ", "").split("|")
-                    self.piece_properties.content.set_index_annotation(box_index, suzipu_list[idx])
-            else:
-                for idx, box_index in enumerate(self.gui_state.type_to_cycle_dict[self.gui_state.tk_current_boxtype.get()].list):
-                    self.piece_properties.content.set_index_annotation(box_index, text[idx])
+            for idx, box_index in enumerate(self.gui_state.type_to_cycle_dict[box_type].list):
+                if constant_fill:
+                    self.piece_properties.content.set_index_annotation(box_index, iterable)
+                else:
+                    self.piece_properties.content.set_index_annotation(box_index, iterable[idx])
+
+    def fill_all_boxes_of_current_type(self, iterable):
+        self.fill_all_boxes_of_type(self.gui_state.tk_current_boxtype.get(), iterable)
 
     def get_contents_of_type(self, key: str):
         try:
@@ -236,10 +247,18 @@ class ProgramState:
 
     def get_box_images_from_type(self, key: str):
         try:
-            coordinates = [self.piece_properties.content.get_index_coordinates(box_idx) for box_idx in self.program_state.gui_state.type_to_cycle_dict[key].list]
+            coordinates = [self.piece_properties.content.get_index_coordinates(box_idx) for box_idx in self.gui_state.type_to_cycle_dict[key].list]
             images = [get_image_from_box_ai_assistant(self.gui_state.current_image, coord) for coord in coordinates]
             return images
-        except AttributeError:
+        except AttributeError as e:
+            return None
+
+    def get_raw_box_images_from_type(self, key: str):
+        try:
+            coordinates = [self.piece_properties.content.get_index_coordinates(box_idx) for box_idx in self.gui_state.type_to_cycle_dict[key].list]
+            images = [get_image_from_box(self.gui_state.current_image, coord) for coord in coordinates]
+            return images
+        except AttributeError as e:
             return None
     
     def construct_image(self):

@@ -1,4 +1,5 @@
 import dataclasses
+import importlib
 import os
 
 import PIL
@@ -23,7 +24,7 @@ def pil_to_cv(pil_image):
     return open_cv_image[:, :, ::-1].copy()
 
 
-def state_to_json(program_state):
+def state_to_json(program_state, gui_state):
     program_state_json = program_state.dump()
     content = program_state_json["content"]
 
@@ -32,9 +33,9 @@ def state_to_json(program_state):
     lyrics_list = []
 
     for box in content:
-        if box["box_type"] == "Music":
+        if box["box_type"] == BoxType.MUSIC:
             music_list.append(box)
-        elif box["box_type"] == "Lyrics":
+        elif box["box_type"] == BoxType.LYRICS:
             lyrics_list.append(box)
         else:
             new_content.append({
@@ -52,6 +53,11 @@ def state_to_json(program_state):
         text_box = lyrics_list[idx]
         music_box = music_list[idx]
 
+        plugin_name = gui_state.tk_notation_plugin_selection.get().lower()
+        module = importlib.import_module(f"src.plugins.{plugin_name}")
+        music_annotation = module.EMPTY_ANNOTATION if music_box["annotation"] == "" else music_box["annotation"]
+
+
         new_content.append({
             "box_type": BoxType.MUSIC,
             "is_excluded_from_dataset": music_box["is_excluded_from_dataset"],
@@ -59,10 +65,15 @@ def state_to_json(program_state):
             "text_coordinates": text_box["coordinates"],
             "text_content": text_box["annotation"],
             "notation_coordinates": music_box["coordinates"],
-            "notation_content": music_box["annotation"],
+            "notation_content": music_annotation,
         })
 
-        program_state_json["content"] = new_content
+    program_state_json["content"] = new_content
+
+    # order the dictionary for better readability
+    keyorder = ['version', 'notation_type', 'composer', 'mode_properties', 'images', 'content']
+    program_state_json = {k: program_state_json[k] for k in keyorder if k in program_state_json}
+    program_state_json["version"] = "2.0"
 
     return program_state_json
 
@@ -142,6 +153,13 @@ def get_image_from_box_fixed_size(current_image, box):
     return ImageTk.PhotoImage(image=return_img)
 
 
+def cv_to_tkinter_image(cv_image):
+    channel = cv_image[0, :, :]
+    merge_img = cv2.merge((channel, channel, channel)).astype(np.uint8)
+    merge_img = Image.fromarray(merge_img)
+    return ImageTk.PhotoImage(image=merge_img)
+
+
 def get_image_from_box_ai_assistant(current_image, box):
     (x1, y1), (x2, y2) = box
     x1, x2 = min(x1, x2), max(x1, x2)
@@ -160,7 +178,7 @@ def get_image_from_box(current_image, box):
     x1, x2 = min(x1, x2), max(x1, x2)
     y1, y2 = min(y1, y2), max(y1, y2)
 
-    cropped_img = current_image[y1:y2, x1:x2, :]
+    cropped_img = current_image[y1:y2, x1:x2, 0]
     return cropped_img
 
 
@@ -205,7 +223,7 @@ class BoxesWithType(JsonSerializable):
     boxes_list: list[dict] = dataclasses.field(default_factory=lambda: [])
 
     @classmethod
-    def create_new_box(cls, coordinates: tuple = tuple(), type: str =BoxType.UNMARKED, annotation="", is_excluded_from_dataset: bool = False, is_line_break: bool = False):
+    def create_new_box(cls, coordinates: tuple = tuple(), type: str =BoxType.UNMARKED, annotation=None, is_excluded_from_dataset: bool = False, is_line_break: bool = False):
         return {
             "coordinates": coordinates,
             "box_type": type,

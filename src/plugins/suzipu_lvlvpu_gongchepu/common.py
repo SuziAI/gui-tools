@@ -385,10 +385,13 @@ class GongdiaoMode:
     def convert_pitches_in_list(self, original_list):
         new_list = []
         for idx in range(len(original_list)):
-            if "secondary" in original_list[idx].keys():
-                new_list.append({"pitch": self.convert_pitch(original_list[idx]["pitch"]), "secondary": original_list[idx]["secondary"]})
-            else:
-                new_list.append({"pitch": self.convert_pitch(original_list[idx]["pitch"])})
+            try:
+                if "secondary" in original_list[idx].keys():
+                    new_list.append({"pitch": self.convert_pitch(original_list[idx]["pitch"]), "secondary": original_list[idx]["secondary"]})
+                else:
+                    new_list.append({"pitch": self.convert_pitch(original_list[idx]["pitch"])})
+            except AttributeError:
+                new_list.append({"pitch": None})
         return new_list
 
     def get_properties(self):
@@ -679,14 +682,21 @@ class ModeSelectorFrame:
         self.widgets = None
         self.get_mode_string = on_get_mode_string
 
+        self.mode_info_is_active = False
+        self.custom_mode_selector_is_active = False
+
         self._create_frame()
 
     def get_properties(self):
         return {"gong_lvlv": self.mode_gong_lvlv.get(), "final_note": self.mode_final_note.get()}
 
     def set_properties(self, mode_properties):
-        self.mode_gong_lvlv.set(mode_properties["gong_lvlv"])
-        self.mode_final_note.set(mode_properties["final_note"])
+        try:
+            self.mode_gong_lvlv.set(mode_properties["gong_lvlv"])
+            self.mode_final_note.set(mode_properties["final_note"])
+        except KeyError:
+            self.mode_gong_lvlv.set("None")
+            self.mode_final_note.set("None")
 
     def _create_frame(self):
         def on_update_mode_properties(*args, **kwargs):
@@ -702,29 +712,33 @@ class ModeSelectorFrame:
             self.mode_final_note.set(mode.final_note)
 
         def on_mode_info():
-            tid1 = None
-            tid2 = None
-            def execute_mode_display_window():
-                custom_mode_window = tk.Toplevel()
-                self.mode_display_frame = ModeDisplayFrame(custom_mode_window, self.mode_gong_lvlv, self.mode_final_note)
-                self.mode_display_frame.get_frame().pack()
-                self.mode_display_frame.update()
-                tid1 = self.mode_gong_lvlv.trace_add("write", self.mode_display_frame.update)
-                tid2 = self.mode_final_note.trace_add("write", self.mode_display_frame.update)
-                custom_mode_window.wait_window()
-                return
+            if not self.mode_info_is_active:
+                tid1 = None
+                tid2 = None
+                def execute_mode_display_window():
+                    self.mode_info_is_active = True
+                    custom_mode_window = tk.Toplevel()
+                    self.mode_display_frame = ModeDisplayFrame(custom_mode_window, self.mode_gong_lvlv, self.mode_final_note)
+                    self.mode_display_frame.get_frame().pack()
+                    self.mode_display_frame.update()
+                    tid1 = self.mode_gong_lvlv.trace_add("write", self.mode_display_frame.update)
+                    tid2 = self.mode_final_note.trace_add("write", self.mode_display_frame.update)
+                    custom_mode_window.wait_window()
+                    self.mode_info_is_active = False
+                    return
 
-            execute_mode_display_window()
-            self.mode_display_frame = None
-            if tid1:
-                self.mode_gong_lvlv.trace_remove("write", tid1)
-            if tid2:
-                self.mode_final_note.trace_remove("write", tid2)
-            tid1 = None
-            tid2 = None
+                execute_mode_display_window()
+                self.mode_display_frame = None
+                if tid1:
+                    self.mode_gong_lvlv.trace_remove("write", tid1)
+                if tid2:
+                    self.mode_final_note.trace_remove("write", tid2)
+                tid1 = None
+                tid2 = None
 
         def on_custom_mode():
             def execute_custom_mode_window():
+                self.custom_mode_selector_is_active = True
                 lvlv_list = [Lvlv.to_name(lvlv) for lvlv in dataclasses.astuple(Lvlv())][1:]
                 final_note_list = [GongdiaoStep.to_name(step) for step in dataclasses.astuple(GongdiaoStep())][1:]
 
@@ -756,21 +770,23 @@ class ModeSelectorFrame:
                 ok_button.grid(row=1, column=0)
 
                 custom_mode_window.wait_window()
+                self.custom_mode_selector_is_active = False
 
                 return exit_save_var.get(), gong_lvlv_var.get(), final_note_var.get()
 
-            exit_save_var, gong_lvlv_string, final_note = execute_custom_mode_window()
+            if not self.custom_mode_selector_is_active:
+                exit_save_var, gong_lvlv_string, final_note = execute_custom_mode_window()
 
-            if exit_save_var:
-                gong_lvlv = Lvlv.from_name(gong_lvlv_string)
+                if exit_save_var:
+                    gong_lvlv = Lvlv.from_name(gong_lvlv_string)
 
-                mode = GongdiaoModeList.from_properties({"gong_lvlv": gong_lvlv, "final_note": final_note})
-                self.mode_variable.set(mode.name)
-                self.mode_gong_lvlv.set(mode.gong_lvlv)
-                self.mode_final_note.set(mode.final_note)
+                    mode = GongdiaoModeList.from_properties({"gong_lvlv": gong_lvlv, "final_note": final_note})
+                    self.mode_variable.set(mode.name)
+                    self.mode_gong_lvlv.set(mode.gong_lvlv)
+                    self.mode_final_note.set(mode.final_note)
 
-                if self.mode_display_frame is not None:
-                    self.mode_display_frame.update()
+                    if self.mode_display_frame is not None:
+                        self.mode_display_frame.update()
 
         sub_frame = tk.Frame(self.frame)
         mode_names = [mode.name for mode in dataclasses.astuple(GongdiaoModeList())]

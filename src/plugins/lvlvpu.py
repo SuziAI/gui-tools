@@ -17,6 +17,8 @@ from src.plugins.suzipu_lvlvpu_gongchepu.common import Symbol, SuzipuMelodySymbo
 
 
 EMPTY_ANNOTATION = {"pitch": None}
+PLUGIN_NAME = "Lülüpu"
+DISPLAY_NOTATION = True
 
 
 def notation_to_jianpu(font, image_dict, mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes=False):
@@ -164,7 +166,11 @@ class NotationAnnotationFrame:
                 if string == "None":
                     return None
                 return string
-            annotation = {"pitch": return_none_if_none(ExtendedLvlv.from_name(self.musical_var.get()))}
+            try:
+                annotation = {"pitch": return_none_if_none(ExtendedLvlv.from_name(self.musical_var.get()))}
+            except Exception:
+                annotation = EMPTY_ANNOTATION
+            print("SET ANNOTATION", annotation)
             self.program_state.set_current_annotation(annotation)
 
         def construct_lvlvpu_frame(frame, primary=True):

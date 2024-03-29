@@ -19,9 +19,9 @@ from src.auxiliary import is_point_in_rectangle, Colors, \
     box_property_to_color, get_image_from_box_fixed_size, open_file_as_tk_image, \
     is_rectangle_big_enough, \
     state_to_json, get_folder_contents, BoxType, BoxesWithType, ListCycle, \
-    BoxManipulationAction
+    BoxManipulationAction, draw_transparent_rectangle
 from src.programstate import PieceProperties, GuiState, ProgramState
-from src.config import GO_INTO_ANNOTATION_MODE_IMAGE, INVALID_MODE_IMAGE
+from src.config import GO_INTO_ANNOTATION_MODE_IMAGE, INVALID_MODE_IMAGE, PLUGIN_NOT_SUPPORT_NOTATION_IMAGE
 from src.widgets_auxiliary import on_closing, IncrementDecrementFrame, PreviousNextFrame, \
     SelectionFrame, SaveLoadFrame, PiecePropertiesFrame
 from src.widgets_annotation import AnnotationFrame
@@ -37,7 +37,7 @@ class MainWindow:
         self.program_state = ProgramState(piece_properties=PieceProperties(), gui_state=GuiState(self.main_window, weights_path))
 
     def exec(self):
-        opencv_window = OpenCvWindow("Chinese Musical Annotation Tool - Canvas")
+        opencv_window = OpenCvWindow("Chinese Musical Annotation Tool - Canvas", self.program_state)
 
         def ensure_current_image():
             image_must_be_changed = self.program_state.gui_state.must_be_changed or self.program_state.piece_properties.base_image_path is None
@@ -127,6 +127,7 @@ class MainWindow:
 
         invalid_mode_image = open_file_as_tk_image(INVALID_MODE_IMAGE)
         go_into_annotation_mode_image = open_file_as_tk_image(GO_INTO_ANNOTATION_MODE_IMAGE)
+        plugin_not_support_notation_image = open_file_as_tk_image(PLUGIN_NOT_SUPPORT_NOTATION_IMAGE)
 
         def get_content_list(key: str):
             try:
@@ -162,20 +163,23 @@ class MainWindow:
             plugin_name = self.program_state.gui_state.tk_notation_plugin_selection.get().lower()
             module = importlib.import_module(f"src.plugins.{plugin_name}")
 
-            if display_notes_frame.is_jianpu():
-                notation_img = module.notation_to_jianpu(self.program_state.gui_state.notation_resources.small_font,
-                                                      self.program_state.gui_state.notation_resources.jianpu_image_dict,
-                                                      mode,
-                                                      music_list, lyrics_list,
-                                                      line_break_idxs,
-                                                      fingering)
-            else:
-                notation_img = module.notation_to_western(self.program_state.gui_state.notation_resources.small_font,
-                                                       self.program_state.gui_state.notation_resources.western_image_dict,
-                                                       mode,
-                                                       music_list, lyrics_list,
-                                                       line_break_idxs,
-                                                       fingering)
+            try:
+                if display_notes_frame.is_jianpu():
+                    notation_img = module.notation_to_jianpu(self.program_state.gui_state.notation_resources.small_font,
+                                                          self.program_state.gui_state.notation_resources.jianpu_image_dict,
+                                                          mode,
+                                                          music_list, lyrics_list,
+                                                          line_break_idxs,
+                                                          fingering)
+                else:
+                    notation_img = module.notation_to_western(self.program_state.gui_state.notation_resources.small_font,
+                                                           self.program_state.gui_state.notation_resources.western_image_dict,
+                                                           mode,
+                                                           music_list, lyrics_list,
+                                                           line_break_idxs,
+                                                           fingering)
+            except NotImplementedError:
+                return None
 
             return notation_img
 
@@ -361,6 +365,7 @@ class MainWindow:
                 self.program_state.gui_state.image_name_circle.set_if_present(os.path.join(self.program_state.gui_state.images_dir, Path(self.program_state.piece_properties.base_image_path).name))
                 must_be_changed()
                 on_activate_deactivate_annotation_frame()
+                on_reset_segmentation()
 
         def on_load():
             filetypes = (
@@ -382,7 +387,10 @@ class MainWindow:
                     self.program_state.gui_state.initial_filename = Path(file_path).stem
                     self.program_state.initialize_from_piece_properties(piece_properties)
                     right_increment_decrement_widget.set_counter(self.program_state.gui_state.number_of_pages.get())
-                    self.program_state.gui_state.tk_current_mode_string.set(GongdiaoModeList.from_properties(self.program_state.piece_properties.mode_properties).name)
+                    try:  ## TODO
+                        self.program_state.gui_state.tk_current_mode_string.set(GongdiaoModeList.from_properties(self.program_state.piece_properties.mode_properties).name)
+                    except Exception:
+                        self.program_state.gui_state.tk_current_mode_string.set("NO MODE")
                     self.program_state.gui_state.tk_notation_plugin_selection.set(json_contents["notation_type"])
                     self.program_state.gui_state.tk_current_composer.set(json_contents["composer"])
 
@@ -393,7 +401,7 @@ class MainWindow:
                     on_activate_deactivate_annotation_frame()
 
         prev_next_increment_frame = tk.Frame(self.main_window)
-        increment_decrement_subframe = tk.LabelFrame(prev_next_increment_frame, text="Number of pages")
+        increment_decrement_subframe = tk.LabelFrame(prev_next_increment_frame, text="Number of Pages")
         previous_next = PreviousNextFrame(prev_next_increment_frame, self.program_state.gui_state.tk_current_filename, on_previous, on_next).get_frame()
         right_increment_decrement_widget = IncrementDecrementFrame(increment_decrement_subframe, self.program_state.gui_state.number_of_pages, must_be_changed)
         right_increment_decrement = right_increment_decrement_widget.get_frame()
@@ -409,7 +417,7 @@ class MainWindow:
         segment_pages_individually_checkbutton = tk.Checkbutton(inner_frame, text='Segment individually',
                                                                 variable=self.program_state.gui_state.tk_segmentation_individual_pages, onvalue=1,
                                                                 offvalue=0, command=must_be_changed)
-        segmentation_button = tk.Button(inner_frame, text="New Segmentation", command=self.program_state.make_new_segmentation)
+        segmentation_button = tk.Button(inner_frame, text="Auto-Segmentation", command=self.program_state.make_new_segmentation)
         infer_order_button = tk.Button(inner_frame, text="Infer Box Order and Column Breaks", command=on_infer_order)
         segmentation_button.grid(row=0, column=0)
         infer_order_button.grid(row=0, column=1)
@@ -420,11 +428,11 @@ class MainWindow:
         annotation_frame = AnnotationFrame(self.main_window, self.program_state)
 
         notation_window = tk.Toplevel()
-        notation_window.title("Suzipu Musical Annotation Tool - Additional Info")
+        notation_window.title("Suzipu Musical Annotation Tool - Notation Display")
         notation_window.protocol("WM_DELETE_WINDOW", lambda: None)
         notation_window.resizable(False, False)
         #display_notes_frame = AdditionalInfoFrame(notation_window, self.gui_state.gui_state.tk_current_mode_string, on_save_notation, on_save_musicxml, self.program_state.get_mode_string)
-        display_notes_frame = DisplayNotesFrame(notation_window, on_save_notation=on_save_notation, on_save_musicxml=on_save_musicxml)
+        display_notes_frame = DisplayNotesFrame(notation_window, on_save_notation, on_save_musicxml)
 
         def reset_annotation_vars():
             self.program_state.gui_state.tk_current_box_annotation.set("")
@@ -434,7 +442,7 @@ class MainWindow:
             self.program_state.gui_state.tk_current_box_is_line_break.set(False)
             annotation_frame.set_image(None)
 
-        def handle_additional_info():
+        def handle_notation_info():
             def resize_to_width(pil_image):
                 height, width = pil_image.height, pil_image.width
                 #if width > 600:
@@ -449,46 +457,34 @@ class MainWindow:
                 pil_image = pil_image.resize((int(width*percentage), int(height*percentage)))
                 return pil_image
 
-            notation_img = get_notation_image()
+            plugin_name = self.program_state.gui_state.tk_notation_plugin_selection.get().lower()
+            module = importlib.import_module(f"src.plugins.{plugin_name}")
 
-            if notation_img:
-                notation_img = resize_to_width(notation_img)
-                notation_img = ImageTk.PhotoImage(image=notation_img)
-                display_notes_frame.set_image(notation_img)
-            else:
-                display_notes_frame.set_image(invalid_mode_image)
+            if module.DISPLAY_NOTATION:
+                notation_img = get_notation_image()
 
-            def get_suzipu_list():
-                try:
-                    suzipu_list = [self.program_state.piece_properties.content.get_index_annotation(box_idx) for box_idx in
-                                   self.program_state.gui_state.type_to_cycle_dict[BoxType.MUSIC].list]
+                if notation_img:
+                    notation_img = resize_to_width(notation_img)
+                    notation_img = ImageTk.PhotoImage(image=notation_img)
+                    display_notes_frame.set_image(notation_img)
+                else:
+                    display_notes_frame.set_image(invalid_mode_image)
 
-                    single_list = []
-                    for suzipu in suzipu_list:
-                        for char in suzipu:
-                            single_list.append(char)
-
-                    from collections import Counter
-                    cntr = dict(Counter(single_list))
-                    return cntr
-
-                except AttributeError:
-                    return None
-
-            if self.program_state.gui_state.tk_current_action.get() == BoxManipulationAction.ANNOTATE:
-                display_notes_frame.set_state(True)
-                # TODO: Restructure
-                #display_notes_frame.set_statistics(get_suzipu_list())
+                if self.program_state.gui_state.tk_current_action.get() == BoxManipulationAction.ANNOTATE:
+                    display_notes_frame.set_state(True)
+                else:
+                    display_notes_frame.set_state(False)
+                    display_notes_frame.set_image(go_into_annotation_mode_image)
             else:
                 display_notes_frame.set_state(False)
-                display_notes_frame.set_image(go_into_annotation_mode_image)
+                display_notes_frame.set_image(plugin_not_support_notation_image)
 
         def start_opencv_timer():
             handle_opencv_window()
             self.main_window.after(1, start_opencv_timer)
 
         def start_notation_window_timer():
-            handle_additional_info()
+            handle_notation_info()
             self.main_window.after(100, start_notation_window_timer)
 
         def on_activate_deactivate_annotation_frame():
@@ -496,7 +492,7 @@ class MainWindow:
             annotation_frame.set_state(state)
 
         subframe = tk.Frame(self.main_window)
-        selection_buttons = SelectionFrame(subframe, self.program_state.gui_state.tk_current_action, self.program_state.gui_state.tk_current_boxtype, on_click_annotate,
+        selection_buttons = SelectionFrame(subframe, self.program_state, self.program_state.gui_state.tk_current_action, self.program_state.gui_state.tk_current_boxtype, on_click_annotate,
                                            lambda: [on_activate_deactivate_annotation_frame(), annotation_frame.update_annotation()],
                                            lambda: [self.program_state.update_annotation_image_and_variables(), on_activate_deactivate_annotation_frame(), annotation_frame.update_annotation()])
         piece_properties = PiecePropertiesFrame(subframe, self.program_state)
@@ -526,13 +522,17 @@ class MainWindow:
 
 
 class OpenCvWindow:
-    def __init__(self, window_name):
+    def __init__(self, window_name, program_state):
         self.window_name = window_name
-        self.current_click_coordinates = None
-        self.is_clicked = False
+        self.program_state = program_state
+        self.current_mouse_coordinates = None
+        self.current_move_box_idx = None
+        self.move_direction = None
+        self.current_move_box = None
         self.draw_image = None
         self.point_1 = None
         self.point_2 = None
+        self.is_clicked = False
         self.segmentation_boxes = BoxesWithType()
 
         cv2.namedWindow(self.window_name, cv2.WINDOW_GUI_NORMAL)
@@ -544,16 +544,16 @@ class OpenCvWindow:
 
     def handle_mouse_events(self, event, x, y, flags, param):
         if event == cv2.EVENT_RBUTTONDOWN:
-            self.is_clicked = True
             self.point_1 = (x, y)
+            self.is_clicked = True
 
-        elif event == cv2.EVENT_MOUSEMOVE and self.is_clicked:
-            self.current_click_coordinates = (x, y)
-
-        elif event == cv2.EVENT_RBUTTONUP:
+        if event == cv2.EVENT_RBUTTONUP:
+            if self.point_1 is not None:
+                self.point_2 = (x, y)
             self.is_clicked = False
-            self.point_2 = (x, y)
-            self.current_click_coordinates = None
+
+        if event == cv2.EVENT_MOUSEMOVE:
+            self.current_mouse_coordinates = (x, y)
 
     def draw_and_handle_clicks(self, program_state, selection_mode, boxtype, current_image, current_annotation_idx, set_current_annotation_idx = lambda: None):
         self.segmentation_boxes = program_state.content
@@ -566,27 +566,111 @@ class OpenCvWindow:
         if keypress == ord('q'): #or cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) < 1:
             exit_flag = True
 
-        if self.current_click_coordinates:
+        if self.current_mouse_coordinates and self.is_clicked and selection_mode in [BoxManipulationAction.MARK, BoxManipulationAction.DELETE, BoxManipulationAction.ANNOTATE]:
             if program_state.content:
                 for idx, box in enumerate(program_state.content.get_coordinates()):
-                    if is_point_in_rectangle(self.current_click_coordinates, box):
+                    if is_point_in_rectangle(self.current_mouse_coordinates, box):
                         if selection_mode == BoxManipulationAction.MARK:
                             program_state.content.set_index_type(idx, boxtype)
                         if selection_mode == BoxManipulationAction.DELETE:
                             program_state.content.delete_index(idx)
                         if selection_mode == BoxManipulationAction.ANNOTATE:
                             set_current_annotation_idx(idx)
-            self.current_click_coordinates = None
+                        break
 
         if selection_mode == BoxManipulationAction.CREATE:
-            if self.point_1 is not None and self.point_2 is not None:
-                if is_rectangle_big_enough([self.point_1, self.point_2]):
-                    self.segmentation_boxes.add_rectangle(self.point_1, self.point_2, type=boxtype)
-                self.point_1 = None
-                self.point_2 = None
+            if self.point_1 is not None:
+                self.draw_image = draw_transparent_rectangle(self.draw_image, self.point_1, self.current_mouse_coordinates,
+                                                Colors.VIOLET, 1, 0.8)
+                if self.point_1 is not None and self.point_2 is not None:
+                    if is_rectangle_big_enough([self.point_1, self.point_2]):
+                        self.segmentation_boxes.add_rectangle(self.point_1, self.point_2, type=boxtype)
+                    self.point_1 = None
+                    self.point_2 = None
+        elif selection_mode == BoxManipulationAction.MOVE_RESIZE:
+            if self.current_move_box_idx is None:
+                if self.point_1 is not None:
+                    for idx, box in enumerate(program_state.content.get_coordinates()):
+                        if is_point_in_rectangle(self.point_1, box):
+                            self.current_move_box_idx = idx
+                            top_y = max(box[0][1], box[1][1])
+                            bottom_y = min(box[0][1], box[1][1])
+                            left_x = min(box[0][0], box[1][0])
+                            right_x = max(box[0][0], box[1][0])
+
+                            PIXEL_DIFF_FOR_MOVE = 4
+                            if abs(self.point_1[0] - left_x) < PIXEL_DIFF_FOR_MOVE:
+                                self.move_direction = "LEFT"
+                            elif abs(self.point_1[0] - right_x) < PIXEL_DIFF_FOR_MOVE:
+                                self.move_direction = "RIGHT"
+                            elif abs(self.point_1[1] - top_y) < PIXEL_DIFF_FOR_MOVE:
+                                self.move_direction = "BOTTOM"
+                            elif abs(self.point_1[1] - bottom_y) < PIXEL_DIFF_FOR_MOVE:
+                                self.move_direction = "TOP"
+                            else:
+                                self.move_direction = "MOVE"
+                            break
+                    if self.move_direction is None:
+                        self.point_1 = None
+                        self.point_2 = None
+            else:
+                current_coords = self.segmentation_boxes.get_index_coordinates(self.current_move_box_idx)
+
+                def get_increments(point2, move_direction):
+                    draw_increment = [0, 0, 0, 0]
+                    if move_direction == "LEFT":
+                        draw_increment[0] = point2[0] - self.point_1[0]
+                    elif move_direction == "RIGHT":
+                        draw_increment[2] = point2[0] - self.point_1[0]
+                    elif move_direction == "TOP":
+                        draw_increment[1] = point2[1] - self.point_1[1]
+                    elif move_direction == "BOTTOM":
+                        draw_increment[3] = point2[1] - self.point_1[1]
+                    return draw_increment
+
+                if self.move_direction is not None and self.move_direction != "MOVE":  # Resize mode
+                    draw_increment = get_increments(self.current_mouse_coordinates, self.move_direction)
+                    self.draw_image = cv2.rectangle(self.draw_image, [current_coords[0][0] + draw_increment[0],
+                                                                      current_coords[0][1] + draw_increment[1]],
+                                                    [current_coords[1][0] + draw_increment[2],
+                                                     current_coords[1][1] + draw_increment[3]],
+                                                    Colors.VIOLET, 1)
+
+                    if self.point_1 is not None and self.point_2 is not None:
+                        increment = get_increments(self.current_mouse_coordinates, self.move_direction)
+                        self.segmentation_boxes.set_index_coordinates(self.current_move_box_idx, [
+                            [current_coords[0][0] + increment[0], current_coords[0][1] + increment[1]],
+                            [current_coords[1][0] + increment[2], current_coords[1][1] + increment[3]]
+                        ])
+                        self.point_1 = None
+                        self.point_2 = None
+                        self.current_move_box_idx = None
+                        self.move_direction = None
+
+                elif self.move_direction is not None:  # Move mode
+                    draw_increment = (self.current_mouse_coordinates[0] - self.point_1[0], self.current_mouse_coordinates[1] - self.point_1[1])
+                    self.draw_image = cv2.rectangle(self.draw_image, [current_coords[0][0] + draw_increment[0], current_coords[0][1] + draw_increment[1]],
+                            [current_coords[1][0] + draw_increment[0], current_coords[1][1] + draw_increment[1]],
+                                                    Colors.VIOLET, 1)
+                    if self.point_1 is not None and self.point_2 is not None:
+                        increment = (self.point_2[0] - self.point_1[0], self.point_2[1] - self.point_1[1])
+                        self.segmentation_boxes.set_index_coordinates(self.current_move_box_idx, [
+                            [current_coords[0][0] + increment[0], current_coords[0][1] + increment[1]],
+                            [current_coords[1][0] + increment[0], current_coords[1][1] + increment[1]]
+                        ])
+                        self.current_move_box_idx = None
+                        self.point_1 = None
+                        self.point_2 = None
+                        self.move_direction = None
+                else:
+                    self.current_move_box_idx = None
+                    self.point_1 = None
+                    self.point_2 = None
+                    self.move_direction = None
         else:
             self.point_1 = None
             self.point_2 = None
+            self.move_direction = None
 
         if program_state.content:
             for idx in range(len(program_state.content.get_coordinates())):
@@ -595,7 +679,7 @@ class OpenCvWindow:
                     self.draw_image = cv2.rectangle(self.draw_image, start, end, Colors.VIOLET, 8)
                 else:
                     self.draw_image = cv2.rectangle(self.draw_image, start, end, box_property_to_color(
-                        program_state.content.get_index_type(idx)), 2)
+                        program_state.content.get_index_type(idx)), self.program_state.gui_state.draw_box_width.get())
 
 
         cv2.imshow(self.window_name, self.draw_image)

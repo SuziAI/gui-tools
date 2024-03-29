@@ -115,6 +115,7 @@ class GuiState:
 
         self.notation_resources = NotationResources()  # TODO: must be changed since plugin dependent
         self.number_of_pages = SetInt(1)
+        self.draw_box_width = SetInt(1)
         '''the number of image files the piece uses'''
         self.box_idx_to_tkinter_image_dict = {}
         '''dict[global box idx] -> the tkinter image corresponding to this box'''

@@ -89,10 +89,11 @@ class IncrementDecrementFrame:
 
 
 class SelectionFrame:
-    def __init__(self, window_handle, selectionmode_var: tk.StringVar, boxtype_var: tk.StringVar,
+    def __init__(self, window_handle, program_state, selectionmode_var: tk.StringVar, boxtype_var: tk.StringVar,
                  on_click_annotate=lambda: None, on_change_mode_selection=lambda: None,
                  on_change_box_type_selection=lambda: None):
         self.window_handle = window_handle
+        self.program_state = program_state
         self.frame = tk.LabelFrame(self.window_handle, text="Box Manipulation")
         self.selectionmode_var = selectionmode_var
         self.boxtype_var = boxtype_var
@@ -104,8 +105,9 @@ class SelectionFrame:
         self._create_frame()
 
     def _create_frame(self):
-        frame1 = tk.Frame(self.frame)
-        frame2 = tk.Frame(self.frame)
+        left_frame = tk.Frame(self.frame)
+        frame1 = tk.Frame(left_frame)
+        frame2 = tk.Frame(left_frame)
 
         boxtype_buttons = []
         for boxtype_var in dataclasses.astuple(BoxType()):
@@ -136,6 +138,12 @@ class SelectionFrame:
 
         frame1.grid(row=0, column=0, pady=4, padx=10)
         frame2.grid(row=1, column=0, pady=4, padx=10)
+        left_frame.grid(row=0, column=0)
+
+        right_frame = tk.LabelFrame(self.frame, text="Box Width")
+        increment_decrement_frame = IncrementDecrementFrame(right_frame, self.program_state.gui_state.draw_box_width)
+        increment_decrement_frame.get_frame().pack()
+        right_frame.grid(row=0, column=1)
 
     def get_frame(self):
         return self.frame

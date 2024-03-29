@@ -17,6 +17,8 @@ from src.plugins.suzipu_lvlvpu_gongchepu.common import Symbol, SuzipuMelodySymbo
 
 
 EMPTY_ANNOTATION = {"pitch": None, "secondary": None}
+PLUGIN_NAME = "Suzipu"
+DISPLAY_NOTATION = True
 
 
 def notation_to_jianpu(font, image_dict, mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes=False):

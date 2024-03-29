@@ -8,6 +8,14 @@ import numpy as np
 from PIL import Image, ImageTk
 
 
+def draw_transparent_rectangle(image, rect0, rect1, color, thickness, alpha=0.7):
+    overlay = image.copy()
+    overlay = cv2.rectangle(overlay, rect0, rect1,
+                            color, thickness)
+    image = cv2.addWeighted(overlay, alpha, image, 1-alpha, 0)
+    return image
+
+
 def get_folder_contents(path, only_images=False):
     try:
         l = []
@@ -270,6 +278,9 @@ class BoxesWithType(JsonSerializable):
     def is_index_line_break(self, idx):
         return self.boxes_list[idx]["is_line_break"]
 
+    def set_index_coordinates(self, idx, coordinates):
+        self.boxes_list[idx]["coordinates"] = coordinates
+
     def set_index_type(self, idx, type):
         self.boxes_list[idx]["box_type"] = type
 
@@ -387,4 +398,5 @@ class BoxManipulationAction:
     CREATE = "Create"
     MARK = "Mark"
     DELETE = "Delete"
+    MOVE_RESIZE = "Move/Resize"
     ANNOTATE = "Annotate"

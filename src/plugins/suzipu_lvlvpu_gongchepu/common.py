@@ -400,6 +400,8 @@ class GongdiaoMode:
 
 @dataclasses.dataclass
 class GongdiaoModeList:
+    NO_MODE: GongdiaoMode = GongdiaoMode("*No Mode", "*没有调式", None, None)
+
     BAN_SHE_DIAO: GongdiaoMode = GongdiaoMode("Ban She Diao", "般涉调", Lvlv.HUANGZHONG, GongdiaoStep.YU)
     DA_SHI_JUE: GongdiaoMode = GongdiaoMode("Da Shi Jue", "大食角", Lvlv.HUANGZHONG, GongdiaoStep.RUN)
     ZHENG_GONG: GongdiaoMode= GongdiaoMode("Zheng Gong", "正宫", Lvlv.HUANGZHONG, GongdiaoStep.GONG)
@@ -459,8 +461,8 @@ class GongdiaoModeList:
 
             # otherwise, construct a name for it
             return GongdiaoMode(f"{Lvlv.to_name(gong_lvlv)}均 -- final：{final_note}", f"{Lvlv.to_name(gong_lvlv)}均 -- final：{final_note}", gong_lvlv, final_note)
-        except KeyError:
-            return GongdiaoModeList.ZHENG_GONG
+        except (KeyError, TypeError):
+            return GongdiaoModeList.NO_MODE
 
 
 class DisplayNotesFrame:
@@ -694,7 +696,7 @@ class ModeSelectorFrame:
         try:
             self.mode_gong_lvlv.set(mode_properties["gong_lvlv"])
             self.mode_final_note.set(mode_properties["final_note"])
-        except KeyError:
+        except (KeyError, TypeError):
             self.mode_gong_lvlv.set("None")
             self.mode_final_note.set("None")
 
@@ -779,6 +781,7 @@ class ModeSelectorFrame:
 
                 if exit_save_var:
                     gong_lvlv = Lvlv.from_name(gong_lvlv_string)
+                    final_note = GongdiaoStep.from_name(final_note)
 
                     mode = GongdiaoModeList.from_properties({"gong_lvlv": gong_lvlv, "final_note": final_note})
                     self.mode_variable.set(mode.name)

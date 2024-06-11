@@ -6,6 +6,8 @@ import music21
 import argparse
 import json
 
+from music21 import articulations
+
 from src.fingering import FingeringProperties, Fingering, fingering_to_lowest_note
 from src.plugins.suzipu_lvlvpu_gongchepu.common import GongcheMelodySymbol, GongdiaoModeList, SuzipuAdditionalSymbol, \
     suzipu_to_info
@@ -40,7 +42,7 @@ def load_jianpu_image_dict():
     return image_dict
 
 
-def load_western_image_dict():
+def load_staff_image_dict():
     image_dict = {}
     for image_path in os.listdir(FIVELINE_IMAGE_PATH):
         image_dict[os.path.basename(image_path).split(".")[0]] = Image.open(f"{FIVELINE_IMAGE_PATH}/{image_path}").convert("RGB")
@@ -51,6 +53,7 @@ def load_suzipu_image_dict():
     image_dict = {}
     for image_path in os.listdir(SUZIPU_NOTATION_IMAGE_PATH):
         image_dict[os.path.basename(image_path).split(".")[0]] = Image.open(f"{SUZIPU_NOTATION_IMAGE_PATH}/{image_path}").convert("RGB")
+    image_dict[None] = image_dict["none"]
     return image_dict
 
 
@@ -69,7 +72,7 @@ class NotationResources:
         self.title_font = load_font(70)
 
         self.jianpu_image_dict = load_jianpu_image_dict()
-        self.western_image_dict = load_western_image_dict()
+        self.western_image_dict = load_staff_image_dict()
         self.suzipu_image_dict = load_suzipu_image_dict()
 
 
@@ -164,6 +167,7 @@ def construct_note_stream(notation_list, lyrics_list, line_break_idxs):
 
             current_measure.append([note])
         else:
+            original_pitch = pitch
             pitch = suzipu_to_info(pitch).basic_pitch
 
             note = music21.note.Note(pitch, type="16th")
@@ -174,7 +178,10 @@ def construct_note_stream(notation_list, lyrics_list, line_break_idxs):
                 note.line_break = True
 
             note.additional_symbol = secondary
-            note.original_pitch = pitch
+            note.original_pitch = original_pitch
+
+            if "is_zhezi" in notation and notation["is_zhezi"]:
+                note.additional_symbol = SuzipuAdditionalSymbol.ADD_ZHE  # Zhezi for lülüpu
 
             current_measure.append([note])
     stream.append(current_measure)
@@ -186,9 +193,8 @@ def construct_note_stream_musicxml(suzipu_list, lyrics_list):
     stream = music21.stream.Stream()
 
     current_measure = music21.stream.Measure()
-    for box_idx, string in enumerate(suzipu_list):
-        print(lyrics_list[box_idx])
-        if string["pitch"] is None or string["pitch"] == "None":  # Case 1: no suzipu notation in the box
+    for box_idx, notation in enumerate(suzipu_list):
+        if notation["pitch"] is None or notation["pitch"] == "None":  # Case 1: no suzipu notation in the box
             note = music21.note.Rest(length="quarter")
             note.lyric = lyrics_list[box_idx]
 
@@ -202,10 +208,10 @@ def construct_note_stream_musicxml(suzipu_list, lyrics_list):
             else:
                 current_measure.append([note])
         else:
-            char1 = string["pitch"]
+            char1 = notation["pitch"]
 
             try:
-                char2 = string["secondary"]
+                char2 = notation["secondary"]
             except KeyError:
                 char2 = None
 
@@ -216,6 +222,8 @@ def construct_note_stream_musicxml(suzipu_list, lyrics_list):
                 pitch = pitch1 if pitch1 else pitch2
                 note = music21.note.Note(pitch, type="quarter")
                 note.lyric = lyrics_list[box_idx]
+                if "is_zhezi" in notation and notation["is_zhezi"]:
+                    note.articulations.append(articulations.Tenuto())  # Zhezi signified by Tenuto mark for lülüpu
                 current_measure.append(note)
 
             elif pitch1 and pitch2:  # Case 2b: Two pitches in the pair-character notation
@@ -446,7 +454,7 @@ def common_notation_to_jianpu(font, image_dict, mode, music_list, lyrics_list, l
     return whole_image
 
 
-def common_notation_to_western(font, image_dict, mode, music_list, lyrics_list, line_break_idxs=[], fingering=Fingering.ALL_CLOSED_AS_1, return_boxes=False):
+def common_notation_to_staff(font, image_dict, mode, music_list, lyrics_list, line_break_idxs=[], fingering=Fingering.ALL_CLOSED_AS_1, return_boxes=False):
     pitch_past = []
     width = 65
 
@@ -456,7 +464,7 @@ def common_notation_to_western(font, image_dict, mode, music_list, lyrics_list, 
         except TypeError:  # This happens when the chosen mode dows not match the piece
             return None
 
-    def note_to_western(font, note, image_dict):
+    def note_to_staff(font, note, image_dict):
         def note_to_offset_and_staff_type(note):
             def throw_error():
                 raise IndexError(f"Out of range. The note to be displayed {note} is not between A3 and C6")
@@ -541,7 +549,7 @@ def common_notation_to_western(font, image_dict, mode, music_list, lyrics_list, 
         for measure in stream:
             idx = 0
             for note in measure:
-                current_img = note_to_western(font, note, image_dict)
+                current_img = note_to_staff(font, note, image_dict)
                 whole_image.paste(current_img, (width * (idx + 1), current_row_counter * (width + 120 + width + width)))
                 boxes.append(((width * (idx + 1), current_row_counter * (width + 120 + width + width)), (width * (idx + 2), (current_row_counter + 1) * (width + 120 + width + width) - width)))
                 if note.line_break:
@@ -586,9 +594,18 @@ def _notation_to_textbased(font, notation_font, music_list, lyrics_list, note_to
         text_draw = ImageDraw.Draw(whole_img)
 
         if note.isRest:
-            pass
+            if lyric is not None:
+                if is_vertical:
+                    text_draw.text((15, 0), lyric, fill=(0, 0, 0), font=font)
+                else:
+                    text_draw.text((10, width), lyric, fill=(0, 0, 0), font=font)
         else:
             notation = note_to_textbased_function(note.original_pitch)
+            if note.additional_symbol == SuzipuAdditionalSymbol.ADD_ZHE:  # lvlvpu ZHE_ZI
+                notation = "字折"
+
+            if not is_vertical and len(notation) > 1:
+                notation = notation[::-1]
 
             if is_vertical:
                 if len(notation) == 1:
@@ -659,6 +676,10 @@ def notation_to_gongchepu(font, gongche_font, music_list, lyrics_list, line_brea
 
 def notation_to_lvlvpu(font, lvlv_font, music_list, lyrics_list, line_break_idxs=[], return_boxes=False, is_vertical=False):
     return _notation_to_textbased(font, lvlv_font, music_list, lyrics_list, GongcheMelodySymbol.to_lvlv, line_break_idxs, return_boxes, is_vertical)
+
+
+def notation_to_text(font, lvlv_font, lyrics_list, line_break_idxs=[], return_boxes=False, is_vertical=False):
+    return _notation_to_textbased(font, lvlv_font, [{"pitch": None, "secondary": None} for l in lyrics_list], lyrics_list, GongcheMelodySymbol.to_lvlv, line_break_idxs, return_boxes, is_vertical)
 
 
 def notation_to_suzipu(font, image_dict, music_list, lyrics_list, line_break_idxs=[], return_boxes=False, is_vertical=False):
@@ -770,14 +791,13 @@ def write_to_musicxml(file_path, suzipu_list, lyrics_list, fingering=Fingering.A
     if fingering_to_lowest_note(fingering) < music21.note.Note("Ab3"):
         stream = stream.transpose("P8")  # transpose too deep into normal range
 
-    for note in stream.flat.notes:
-        print(note)
+    #for note in stream.flat.notes:
+    #    print(note)
 
     stream.insert(0, music21.metadata.Metadata())
     stream.metadata["title"] = [title, mode, preface]
 
     stream.write("musicxml", fp=file_path)
-
     return None
 
 
@@ -942,7 +962,7 @@ if __name__ == "__main__":
 
 
     #notation_img = common_notation_to_jianpu(small_font, load_jianpu_image_dict(), MODE, music_list, lyrics_list, line_break_idxs, Fingering.ALL_CLOSED_AS_6)
-    notation_img = common_notation_to_western(small_font, load_western_image_dict(), MODE, suzipu_list, lyrics_list, line_break_idxs, Fingering.ALL_CLOSED_AS_6)
+    notation_img = common_notation_to_staff(small_font, load_staff_image_dict(), MODE, suzipu_list, lyrics_list, line_break_idxs, Fingering.ALL_CLOSED_AS_6)
     metadata_img = construct_metadata_image(big_font, small_font, title, mode, preface, image_width=notation_img.width)
 
     combined_img = vertical_composition([metadata_img, notation_img])

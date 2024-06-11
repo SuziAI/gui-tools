@@ -3,7 +3,7 @@ import tkinter.ttk
 
 from src.auxiliary import BoxType
 from src.config import CHINESE_FONT_FILE
-from src.intelligent_assistant import predict_from_images
+from src.intelligent_assistant import predict_text_from_images
 import importlib
 
 from src.programstate import ProgramState
@@ -66,6 +66,8 @@ def exec_intelligent_fill_window_text(annotation_type_var, max_length_var, get_b
     prediction_mode = tk.StringVar()
     prediction_preface = tk.StringVar()
     prediction_lyrics = tk.StringVar()
+    prediction_lyrics_ind = tk.StringVar()
+    prediction_unmarked = tk.StringVar()
 
     def on_predict():
         exit_save_var.set(True)
@@ -73,18 +75,22 @@ def exec_intelligent_fill_window_text(annotation_type_var, max_length_var, get_b
         image_list_mode = get_box_images(BoxType.MODE)
         image_list_preface = get_box_images(BoxType.PREFACE)
         image_list_lyrics = get_box_images(BoxType.LYRICS)
+        image_list_lyrics_ind = get_box_images(BoxType.LYRICS_IND)
+        image_list_unmarked = get_box_images(BoxType.UNMARKED)
 
-        total_progress = len(image_list_title) + len(image_list_mode) + len(image_list_preface) + len(image_list_lyrics)
+        total_progress = len(image_list_title) + len(image_list_mode) + len(image_list_preface) + len(image_list_lyrics) + len(image_list_unmarked) + len(image_list_lyrics_ind)
 
         progress = tk.DoubleVar(value=0)
 
         def predict(update):
-            prediction_title.set(predict_from_images(image_list_title, progress, total_progress, update))
-            prediction_mode.set(predict_from_images(image_list_mode, progress, total_progress, update))
-            prediction_preface.set(predict_from_images(image_list_preface, progress, total_progress, update))
-            prediction_lyrics.set(predict_from_images(image_list_lyrics, progress, total_progress, update))
+            prediction_title.set(predict_text_from_images(image_list_title, progress, total_progress, update))
+            prediction_mode.set(predict_text_from_images(image_list_mode, progress, total_progress, update))
+            prediction_preface.set(predict_text_from_images(image_list_preface, progress, total_progress, update))
+            prediction_lyrics.set(predict_text_from_images(image_list_lyrics, progress, total_progress, update))
+            prediction_lyrics_ind.set(predict_text_from_images(image_list_lyrics_ind, progress, total_progress, update))
+            prediction_unmarked.set(predict_text_from_images(image_list_unmarked, progress, total_progress, update))
 
-            if not prediction_title and not prediction_mode and not prediction_preface and not prediction_lyrics:
+            if not prediction_title and not prediction_mode and not prediction_preface and not prediction_lyrics and not prediction_lyrics_ind and not prediction_unmarked:
                 exit_save_var.set(False)
 
         def wait(message):
@@ -114,7 +120,7 @@ def exec_intelligent_fill_window_text(annotation_type_var, max_length_var, get_b
 
     quick_fill_window.wait_window()
 
-    return exit_save_var.get(), prediction_title.get(), prediction_mode.get(), prediction_preface.get(), prediction_lyrics.get()
+    return exit_save_var.get(), prediction_title.get(), prediction_mode.get(), prediction_preface.get(), prediction_lyrics.get(), prediction_lyrics_ind.get(), prediction_unmarked.get()
 
 
 class TextAnnotationFrame:
@@ -147,7 +153,7 @@ class TextAnnotationFrame:
                 self.program_state.fill_all_boxes_of_current_type(text_variable)
 
         def on_intelligent_fill():
-            exit_save_var, prediction_title, prediction_mode, prediction_preface, prediction_lyrics = exec_intelligent_fill_window_text(*self.quick_fill_vars, self.program_state.get_box_images_from_type)
+            exit_save_var, prediction_title, prediction_mode, prediction_preface, prediction_lyrics, prediction_lyrics_ind, prediction_unmarked = exec_intelligent_fill_window_text(*self.quick_fill_vars, self.program_state.get_box_images_from_type)
             if exit_save_var:
                 if prediction_title:
                     self.program_state.fill_all_boxes_of_type(BoxType.TITLE, prediction_title)
@@ -157,6 +163,10 @@ class TextAnnotationFrame:
                     self.program_state.fill_all_boxes_of_type(BoxType.PREFACE, prediction_preface)
                 if prediction_lyrics:
                     self.program_state.fill_all_boxes_of_type(BoxType.LYRICS, prediction_lyrics)
+                if prediction_lyrics_ind:
+                    self.program_state.fill_all_boxes_of_type(BoxType.LYRICS_IND, prediction_lyrics_ind)
+                if prediction_unmarked:
+                    self.program_state.fill_all_boxes_of_type(BoxType.UNMARKED, prediction_unmarked)
 
         self._widgets.append(tk.Entry(self.frame, width=2, font="Arial 25",
                                       textvariable=self.box_annotation_string,
@@ -222,7 +232,7 @@ class AnnotationFrame:
 
         if boolean:
             self.current_box_image_display.configure(state="normal")
-            if self.program_state.gui_state.tk_current_boxtype.get() == BoxType.MUSIC:
+            if self.program_state.gui_state.tk_current_boxtype.get() in (BoxType.MUSIC, BoxType.MUSIC_IND):
                 if self.musical_annotation_frame is not None:
                     self.musical_annotation_frame.set_state(True)
                 self.text_annotation.set_state(False)
@@ -247,7 +257,7 @@ class AnnotationFrame:
 
     def update_annotation(self):
         self.set_image(self.program_state.gui_state.current_annotation_image)
-        if self.program_state.get_current_type() == BoxType.MUSIC:
+        if self.program_state.get_current_type() in (BoxType.MUSIC, BoxType.MUSIC_IND):
             if self.musical_annotation_frame is not None:
                 self.musical_annotation_frame.update_display()
         else:

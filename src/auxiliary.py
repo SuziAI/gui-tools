@@ -16,6 +16,13 @@ def draw_transparent_rectangle(image, rect0, rect1, color, thickness, alpha=0.7)
     return image
 
 
+def draw_transparent_line(image, p1, p2, color, thickness, alpha=0.7):
+    overlay = image.copy()
+    overlay = cv2.line(overlay, p1, p2, color, thickness)
+    image = cv2.addWeighted(overlay, alpha, image, 1-alpha, 0)
+    return image
+
+
 def get_folder_contents(path, only_images=False):
     try:
         l = []
@@ -43,8 +50,14 @@ def state_to_json(program_state, gui_state):
     for box in content:
         if box["box_type"] == BoxType.MUSIC:
             music_list.append(box)
+        elif box["box_type"] == BoxType.MUSIC_IND:
+            lyrics_list.append({"coordinates": None, "annotation": None})
+            music_list.append(box)
         elif box["box_type"] == BoxType.LYRICS:
             lyrics_list.append(box)
+        elif box["box_type"] == BoxType.LYRICS_IND:
+            lyrics_list.append(box)
+            music_list.append({"coordinates": None, "annotation": None})
         else:
             new_content.append({
                 "box_type": box["box_type"],
@@ -65,16 +78,36 @@ def state_to_json(program_state, gui_state):
         module = importlib.import_module(f"src.plugins.{plugin_name}")
         music_annotation = module.EMPTY_ANNOTATION if music_box["annotation"] == "" else music_box["annotation"]
 
-
-        new_content.append({
-            "box_type": BoxType.MUSIC,
-            "is_excluded_from_dataset": music_box["is_excluded_from_dataset"],
-            "is_line_break": text_box["is_line_break"],
-            "text_coordinates": text_box["coordinates"],
-            "text_content": text_box["annotation"],
-            "notation_coordinates": music_box["coordinates"],
-            "notation_content": music_annotation,
-        })
+        if text_box["coordinates"] is not None and music_box["coordinates"] is not None:  # both lyrics and music in this box
+            new_content.append({
+                "box_type": BoxType.MUSIC,
+                "is_excluded_from_dataset": music_box["is_excluded_from_dataset"],
+                "is_line_break": text_box["is_line_break"],
+                "text_coordinates": text_box["coordinates"],
+                "text_content": text_box["annotation"],
+                "notation_coordinates": music_box["coordinates"],
+                "notation_content": music_annotation,
+            })
+        elif text_box["coordinates"] is not None:  # lyrics only in this box
+            new_content.append({
+                "box_type": BoxType.MUSIC,
+                "is_excluded_from_dataset": text_box["is_excluded_from_dataset"],
+                "is_line_break": text_box["is_line_break"],
+                "text_coordinates": text_box["coordinates"],
+                "text_content": text_box["annotation"],
+                "notation_coordinates": None,
+                "notation_content": None,
+            })
+        else:  # notation only in this box
+            new_content.append({
+                "box_type": BoxType.MUSIC,
+                "is_excluded_from_dataset": music_box["is_excluded_from_dataset"],
+                "is_line_break": music_box["is_line_break"],
+                "text_coordinates": None,
+                "text_content": None,
+                "notation_coordinates": music_box["coordinates"],
+                "notation_content": music_annotation,
+            })
 
     program_state_json["content"] = new_content
 
@@ -97,10 +130,12 @@ def bgr_to_tkinter(bgr_tuple):
 
 class Colors:
     RED = rgb_to_bgr((255, 80, 80))
-    YELLOW = rgb_to_bgr((210, 210, 0))
+    YELLOW = rgb_to_bgr((240, 240, 0))
+    DARK_YELLOW = rgb_to_bgr((160, 160, 0))
     LIME = rgb_to_bgr((20, 255, 20))
     BLUE = rgb_to_bgr((100, 100, 255))
     CYAN = rgb_to_bgr((20, 255, 255))
+    DARK_CYAN = rgb_to_bgr((5, 180, 180))
     MAGENTA = rgb_to_bgr((255, 20, 255))
     VIOLET = rgb_to_bgr((168, 73, 256))
 
@@ -111,7 +146,9 @@ class BoxType:
     MODE: str = "Mode"
     PREFACE: str = "Preface"
     MUSIC: str = "Music"
+    MUSIC_IND: str = "Music (ind.)"
     LYRICS: str = "Lyrics"
+    LYRICS_IND: str = "Lyrics (ind.)"
     UNMARKED: str = "Unmarked"
 
 
@@ -122,7 +159,9 @@ def box_property_to_color(box_property: BoxType):
         BoxType.MODE: Colors.MAGENTA,
         BoxType.PREFACE: Colors.LIME,
         BoxType.MUSIC: Colors.CYAN,
+        BoxType.MUSIC_IND: Colors.DARK_CYAN,
         BoxType.LYRICS: Colors.YELLOW,
+        BoxType.LYRICS_IND: Colors.DARK_YELLOW,
     }
 
     try:
@@ -232,6 +271,10 @@ class BoxesWithType(JsonSerializable):
 
     @classmethod
     def create_new_box(cls, coordinates: tuple = tuple(), type: str =BoxType.UNMARKED, annotation=None, is_excluded_from_dataset: bool = False, is_line_break: bool = False):
+        if not annotation:  # default annotation
+            if type != BoxType.MUSIC:  # text-based boxes
+                annotation = ""
+
         return {
             "coordinates": coordinates,
             "box_type": type,
@@ -333,6 +376,22 @@ class BoxesWithType(JsonSerializable):
                 self.set_index_line_break(idx, True)
 
             self.boxes_list = [self.boxes_list[idx] for idx in sorted_idxs]
+
+    @classmethod
+    def fit_min_bounding_rect_single(cls, image, box):
+        copy_image = 255 * np.ones_like(image)
+        copy_image[box[0][1]:box[1][1], box[0][0]:box[1][0]] = image[box[0][1]:box[1][1], box[0][0]:box[1][0]]
+        gray = 255 * (copy_image < 128).astype(np.uint8)  # reverse the colors
+        coords = cv2.findNonZero(gray[:, :, 0])  # Find all non-zero points (text)
+        x, y, w, h = cv2.boundingRect(coords)  # Find minimum spanning bounding box
+
+        if w > 0 and h > 0:
+            return [[x, y], [x + w, y + h]]
+        return box
+
+    def fit_min_bounding_rects(self, image):
+        for idx in range(len(self.boxes_list)):
+            self.boxes_list[idx]["coordinates"] = self.fit_min_bounding_rect_single(image, self.boxes_list[idx]["coordinates"])
 
     def __bool__(self):
         return self.boxes_list is not None

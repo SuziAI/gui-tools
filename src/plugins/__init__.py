@@ -1,6 +1,5 @@
 import dataclasses
 import os
-from typing import Protocol
 
 
 @dataclasses.dataclass
@@ -21,8 +20,4 @@ class NotationTypePlugins:
             print(f"Could not read files from directory './src/plugins'. {e}")
 
         print("PLUGINS:", self.plugin_names)
-
-
-#class NotationAnnotationFrameProtocol(Protocol):
-
 

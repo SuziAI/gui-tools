@@ -4,9 +4,6 @@ import os
 
 import cv2
 
-from src.auxiliary import get_image_from_box, BoxType, ListCycle
-
-
 def extract_dataset_from_corpus(corpus_dir, output_dir):
     def get_folder_contents(path, extension=None):
         file_list = []
@@ -21,32 +18,35 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
             print(f"Could not read files from directory {path}. {e}")
         return file_list
 
-    def construct_image(image_name_circle, left_counter, right_counter):
-        images = []
+    def get_image(image_name_list):
+        if len(image_name_list) > 0:
+            img_list = []
+            for image in image_name_list:
+                img_list.append(cv2.cvtColor(cv2.imread(image), cv2.COLOR_BGR2RGB))
 
-        for idx in range(-left_counter,
-                         right_counter + 1):
-            image_name = image_name_circle.get_nth_from_current(idx)
-            images.append(cv2.cvtColor(cv2.imread(image_name), cv2.COLOR_BGR2RGB))
+            max_width, max_height = 0, 0
+            for image in img_list:
+                max_height = max(image.shape[0], max_height)
+                max_width = max(image.shape[1], max_width)
 
-        max_width, max_height = 0, 0
-        for image in images:
-            max_height = max(image.shape[0], max_height)
-            max_width = max(image.shape[1], max_width)
+            l = []
+            for idx in range(len(img_list)):
+                l.append(
+                    cv2.copyMakeBorder(
+                        src=img_list[idx],
+                        top=0,
+                        bottom=max_height - img_list[idx].shape[0],
+                        left=0,
+                        right=max_width - img_list[idx].shape[1],
+                        borderType=cv2.BORDER_CONSTANT,
+                        value=[255, 255, 255]
+                    )
+                )
+            l.reverse()
+            return cv2.hconcat(l)
 
-        for idx in range(len(images)):
-            images[idx] = cv2.copyMakeBorder(
-                src=images[idx],
-                top=0,
-                bottom=max_height - images[idx].shape[0],
-                left=0,
-                right=max_width - images[idx].shape[1],
-                borderType=cv2.BORDER_CONSTANT,
-                value=[255, 255, 255]
-            )
-        images.reverse()
-        current_image = cv2.hconcat(images)
-        return current_image
+    def get_image_from_box(image, box):
+        return image[box[0][1]:box[1][1], box[0][0]:box[1][0]]
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -66,7 +66,14 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
         os.makedirs(music_dir)
         os.makedirs(music_images_dir)
 
-    json_files = get_folder_contents(corpus_dir, "json")
+    if isinstance(corpus_dir, str):
+        json_files = get_folder_contents(corpus_dir, "json")
+    else:  # list or tuple
+        json_files = []
+        for corpus in corpus_dir:
+            json_files += get_folder_contents(corpus, "json")
+
+
     for file_name in json_files:
         with open(file_name, "r") as file_handle:
             segmentation_data = json.load(file_handle)
@@ -75,9 +82,7 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
             except KeyError:
                 continue
 
-            circle = ListCycle(image_paths)
-            circle.set_if_present(image_paths[0])
-            image = construct_image(image_name_circle=circle, left_counter=0, right_counter=len(image_paths)-1)
+            image = get_image(image_paths)
 
             box_list = segmentation_data["content"]
 
@@ -90,7 +95,7 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
 
                 if not is_excluded:  # only save in dataset when not excluded
                     current_type = box["box_type"]
-                    if current_type != BoxType.UNMARKED:
+                    if current_type != "UNMARKED":
                         try:
                             cut_out_text_image = get_image_from_box(image, box["text_coordinates"])
                             text_annotation = box["text_content"]

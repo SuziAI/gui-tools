@@ -19,14 +19,14 @@ from src.auxiliary import is_point_in_rectangle, Colors, \
     box_property_to_color, get_image_from_box_fixed_size, open_file_as_tk_image, \
     is_rectangle_big_enough, \
     state_to_json, get_folder_contents, BoxType, BoxesWithType, ListCycle, \
-    BoxManipulationAction, draw_transparent_rectangle
+    BoxManipulationAction, draw_transparent_rectangle, draw_transparent_line
 from src.programstate import PieceProperties, GuiState, ProgramState
 from src.config import GO_INTO_ANNOTATION_MODE_IMAGE, INVALID_MODE_IMAGE, PLUGIN_NOT_SUPPORT_NOTATION_IMAGE
 from src.widgets_auxiliary import on_closing, IncrementDecrementFrame, PreviousNextFrame, \
     SelectionFrame, SaveLoadFrame, PiecePropertiesFrame
 from src.widgets_annotation import AnnotationFrame
 from src.plugins.suzipu_lvlvpu_gongchepu.common import GongdiaoModeList, DisplayNotesFrame
-from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import common_notation_to_jianpu, common_notation_to_western, construct_metadata_image, vertical_composition, add_border, write_to_musicxml
+from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import common_notation_to_jianpu, common_notation_to_staff, construct_metadata_image, vertical_composition, add_border, write_to_musicxml
 
 
 class MainWindow:
@@ -64,6 +64,9 @@ class MainWindow:
         def on_infer_order():
             self.program_state.piece_properties.content.sort()
             create_sorted_segmentation_type_groups()
+
+        def on_min_bounding_rect():
+            self.program_state.piece_properties.content.fit_min_bounding_rects(self.program_state.gui_state.current_image)
 
         def on_reset_segmentation():
             self.program_state.piece_properties.content.reset()
@@ -165,16 +168,12 @@ class MainWindow:
 
             try:
                 if display_notes_frame.is_jianpu():
-                    notation_img = module.notation_to_jianpu(self.program_state.gui_state.notation_resources.small_font,
-                                                          self.program_state.gui_state.notation_resources.jianpu_image_dict,
-                                                          mode,
+                    notation_img = module.notation_to_jianpu(mode,
                                                           music_list, lyrics_list,
                                                           line_break_idxs,
                                                           fingering)
                 else:
-                    notation_img = module.notation_to_western(self.program_state.gui_state.notation_resources.small_font,
-                                                           self.program_state.gui_state.notation_resources.western_image_dict,
-                                                           mode,
+                    notation_img = module.notation_to_staff(mode,
                                                            music_list, lyrics_list,
                                                            line_break_idxs,
                                                            fingering)
@@ -304,6 +303,7 @@ class MainWindow:
                     keyorder = ['version', 'notation_type', 'composer', 'mode_properties', 'images', 'content']
                     json_state = {k: json_state[k] for k in keyorder if k in json_state}
 
+                    self.program_state.gui_state.initial_filename = Path(file_path).stem
                     json.dump(json_state, json_file)
 
         def on_save_text():
@@ -316,18 +316,23 @@ class MainWindow:
                 def get_content_string(key):
                     create_sorted_segmentation_type_groups()
                     try:
-                        raw_content_list = [self.program_state.piece_properties.content.get_index_annotation(box_idx) for box_idx in self.program_state.gui_state.type_to_cycle_dict[key].list]
+                        raw_content_list = [
+                            self.program_state.piece_properties.content.get_index_annotation(box_idx) for box_idx in
+                            self.program_state.gui_state.type_to_cycle_dict[key].list]
 
-                        content_string = ""
-                        for string in raw_content_list:
-                            if string == "":  # if empty box, display as blank
-                                string = " "
-                            content_string += string
-                            if key == BoxType.MUSIC:
-                                content_string += "|"
                         if key == BoxType.MUSIC:
-                            return content_string[0:-1]  #remove the last '|'
-                        return content_string
+                            return json.dumps(raw_content_list)
+                        else:
+                            content_string = ""
+                            for string in raw_content_list:
+                                if string == "":  # if empty box, display as blank
+                                    string = " "
+                                content_string += string
+                                if key == BoxType.MUSIC:
+                                    content_string += "|"
+                            if key == BoxType.MUSIC:
+                                return content_string[0:-1]  # remove the last '|'
+                            return content_string
                     except KeyError:
                         return ""
 
@@ -338,6 +343,9 @@ class MainWindow:
                         f"Preface: {get_content_string(BoxType.PREFACE)}\n\n"
                         f"Lyrics: {get_content_string(BoxType.LYRICS)}\n\n"
                         f"Music: {get_content_string(BoxType.MUSIC)}\n\n"
+                        f"Lyrics (ind.): {get_content_string(BoxType.LYRICS_IND)}\n\n"
+                        f"Music (ind.): {get_content_string(BoxType.MUSIC_IND)}\n\n"
+                        f"Unmarked: {get_content_string(BoxType.UNMARKED)}\n\n"
                     )
 
         def on_new():
@@ -361,8 +369,12 @@ class MainWindow:
                 self.program_state.gui_state.tk_current_mode_string.set(GongdiaoModeList.from_properties(self.program_state.piece_properties.mode_properties).name)
 
                 annotation_frame.set_mode_properties(self.program_state.piece_properties.mode_properties)
-
-                self.program_state.gui_state.image_name_circle.set_if_present(os.path.join(self.program_state.gui_state.images_dir, Path(self.program_state.piece_properties.base_image_path).name))
+                path = None
+                try:
+                    path = os.path.join(self.program_state.gui_state.images_dir, Path(self.program_state.piece_properties.base_image_path).name)
+                except TypeError:
+                    pass
+                self.program_state.gui_state.image_name_circle.set_if_present(path)
                 must_be_changed()
                 on_activate_deactivate_annotation_frame()
                 on_reset_segmentation()
@@ -419,8 +431,10 @@ class MainWindow:
                                                                 offvalue=0, command=must_be_changed)
         segmentation_button = tk.Button(inner_frame, text="Auto-Segmentation", command=self.program_state.make_new_segmentation)
         infer_order_button = tk.Button(inner_frame, text="Infer Box Order and Column Breaks", command=on_infer_order)
+        min_bounding_rect = tk.Button(inner_frame, text="Min Bounding Rectangles", command=on_min_bounding_rect)
         segmentation_button.grid(row=0, column=0)
-        infer_order_button.grid(row=0, column=1)
+        min_bounding_rect.grid(row=0, column=1)
+        infer_order_button.grid(row=0, column=2)
         segment_pages_individually_checkbutton.grid(row=1, column=0)
         inner_frame.pack(padx=10, pady=3)
 
@@ -584,9 +598,14 @@ class OpenCvWindow:
                                                 Colors.VIOLET, 1, 0.8)
                 if self.point_1 is not None and self.point_2 is not None:
                     if is_rectangle_big_enough([self.point_1, self.point_2]):
-                        self.segmentation_boxes.add_rectangle(self.point_1, self.point_2, type=boxtype)
+                        self.segmentation_boxes.add_rectangle(self.point_1, [self.point_2[0]+1, self.point_2[1]+1], type=boxtype)
                     self.point_1 = None
                     self.point_2 = None
+            else:  # draw ruler
+                if self.current_mouse_coordinates is not None:
+                    current_x, current_y = self.current_mouse_coordinates
+                    self.draw_image = draw_transparent_line(self.draw_image, (current_x-2, current_y), (current_x+40, current_y), Colors.VIOLET, 1, alpha=0.3)
+                    self.draw_image = draw_transparent_line(self.draw_image, (current_x, current_y-2), (current_x, current_y+40), Colors.VIOLET, 1, alpha=0.3)
         elif selection_mode == BoxManipulationAction.MOVE_RESIZE:
             if self.current_move_box_idx is None:
                 if self.point_1 is not None:
@@ -632,8 +651,8 @@ class OpenCvWindow:
                     draw_increment = get_increments(self.current_mouse_coordinates, self.move_direction)
                     self.draw_image = cv2.rectangle(self.draw_image, [current_coords[0][0] + draw_increment[0],
                                                                       current_coords[0][1] + draw_increment[1]],
-                                                    [current_coords[1][0] + draw_increment[2],
-                                                     current_coords[1][1] + draw_increment[3]],
+                                                    [current_coords[1][0] + draw_increment[2] - 1,
+                                                     current_coords[1][1] + draw_increment[3] - 1],
                                                     Colors.VIOLET, 1)
 
                     if self.point_1 is not None and self.point_2 is not None:
@@ -650,7 +669,7 @@ class OpenCvWindow:
                 elif self.move_direction is not None:  # Move mode
                     draw_increment = (self.current_mouse_coordinates[0] - self.point_1[0], self.current_mouse_coordinates[1] - self.point_1[1])
                     self.draw_image = cv2.rectangle(self.draw_image, [current_coords[0][0] + draw_increment[0], current_coords[0][1] + draw_increment[1]],
-                            [current_coords[1][0] + draw_increment[0], current_coords[1][1] + draw_increment[1]],
+                            [current_coords[1][0] + draw_increment[0] - 1, current_coords[1][1] + draw_increment[1] - 1],
                                                     Colors.VIOLET, 1)
                     if self.point_1 is not None and self.point_2 is not None:
                         increment = (self.point_2[0] - self.point_1[0], self.point_2[1] - self.point_1[1])
@@ -676,9 +695,9 @@ class OpenCvWindow:
             for idx in range(len(program_state.content.get_coordinates())):
                 start, end = program_state.content.get_index_coordinates(idx)
                 if current_annotation_idx is not None and idx == current_annotation_idx:  #currently selected box should be drawn thicker
-                    self.draw_image = cv2.rectangle(self.draw_image, start, end, Colors.VIOLET, 8)
+                    self.draw_image = cv2.rectangle(self.draw_image, start, [end[0]-1, end[1]-1], Colors.VIOLET, 8)
                 else:
-                    self.draw_image = cv2.rectangle(self.draw_image, start, end, box_property_to_color(
+                    self.draw_image = cv2.rectangle(self.draw_image, start, [end[0]-1, end[1]-1], box_property_to_color(
                         program_state.content.get_index_type(idx)), self.program_state.gui_state.draw_box_width.get())
 
 

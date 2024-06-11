@@ -139,13 +139,15 @@ def crop_excess_whitespace(image):
 
 
 def load_transforms():
-    def shrink(target_size=28):
+    def shrink(is_random=False, target_size=20):
         def inner(input_image):
-            t_size = target_size - 7
+
+            t_size = random.randint(15, 22) if is_random else target_size
 
             original_width = input_image.shape[-1]
             original_height = input_image.shape[-2]
-            aspect_ratio = original_width / original_height
+            aspect_ratio = original_width / original_height * random.uniform(0.6,
+                                                                             1.5) if is_random else original_width / original_height
 
             if aspect_ratio > 1:
                 w = int(t_size)
@@ -160,7 +162,7 @@ def load_transforms():
 
         return inner
 
-    def paste_to_square(target_size=28):
+    def paste_to_square(is_random=False, target_size=28):
         def inner(input_image):
             ## Modify the function to extend the
             ## input image to a square of 40x40.
@@ -175,8 +177,8 @@ def load_transforms():
             pad_width = target_size - input_image.shape[-1]
             pad_height = target_size - input_image.shape[-2]
 
-            left_pad = pad_width // 2
-            top_pad = pad_height // 2
+            left_pad = random.randint(0, pad_width) if is_random else pad_width // 2
+            top_pad = random.randint(0, pad_height) if is_random else pad_height // 2
 
             right_pad = pad_width - left_pad
             bottom_pad = pad_height - top_pad
@@ -187,8 +189,8 @@ def load_transforms():
         return inner
 
     def normalize():
-        mean = 0.8497
-        std = 0.0518
+        mean = 0.7102
+        std = 0.0914
         return transforms.Normalize(mean=mean, std=std)
 
     evaluation_transforms = transforms.Compose([
@@ -201,7 +203,7 @@ def load_transforms():
 
     display_transforms = transforms.Compose([
         transforms.ToTensor(),
-        shrink(target_size=60),
+        shrink(target_size=55),
         paste_to_square(target_size=60),
         lambda img: transforms.functional.invert(img),  # inverts image, needed for rotations
         normalize(),  # normalize mean and variance
@@ -242,6 +244,7 @@ def predict_similar(image_list, models, transformations):
     concatenation = torch.cat([image.unsqueeze(0) for image in image_list])
 
     pitch_latent = models["model"]["pitch"].get_representation(concatenation).detach().numpy()
+    print(pitch_latent[0])
     secondary_latent = models["model"]["secondary"].get_representation(concatenation).detach().numpy()
 
     current_pitch_embedding = models["umap_models"]["pitch"](pitch_latent)

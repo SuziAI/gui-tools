@@ -8,7 +8,8 @@ import PIL
 from PIL import ImageTk
 
 from src.auxiliary import BoxType
-from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import common_notation_to_jianpu, common_notation_to_western
+from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import common_notation_to_jianpu, common_notation_to_staff, \
+    notation_to_suzipu, NotationResources
 from src.plugins.suzipu_lvlvpu_gongchepu.suzipu_intelligent_assistant import load_model, load_transforms, predict_all
 from src.programstate import ProgramState
 from src.config import CHINESE_FONT_FILE
@@ -20,13 +21,25 @@ EMPTY_ANNOTATION = {"pitch": None, "secondary": None}
 PLUGIN_NAME = "Suzipu"
 DISPLAY_NOTATION = True
 
-
-def notation_to_jianpu(font, image_dict, mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes=False):
-    return common_notation_to_jianpu(font, image_dict, mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes)
+RESOURCES = NotationResources()
 
 
-def notation_to_western(font, image_dict, mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes=False):
-    return common_notation_to_western(font, image_dict, mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes)
+def notation_to_own(mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes, is_vertical):
+    return notation_to_suzipu(
+                    RESOURCES.small_font,
+                    RESOURCES.suzipu_image_dict,
+                    music_list, lyrics_list,
+                    line_break_idxs,
+                    return_boxes,
+                    is_vertical)
+
+
+def notation_to_jianpu(mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes=False, is_vertical=False):
+    return common_notation_to_jianpu(RESOURCES.small_font, RESOURCES.jianpu_image_dict, mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes)
+
+
+def notation_to_staff(mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes=False, is_vertical=False):
+    return common_notation_to_staff(RESOURCES.small_font, RESOURCES.western_image_dict, mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes)
 
 
 class IntelligentAssistantFrame:
@@ -233,10 +246,41 @@ class SymbolDisplayFrame:
         return self.frame
 
 
+def exec_quick_fill_window(annotation_type_var, max_length_var):
+    quick_fill_window = tk.Toplevel()
+
+    exit_save_var = tk.BooleanVar()
+    exit_save_var.set(False)
+    def on_destroy_save_changes():
+        exit_save_var.set(True)
+        quick_fill_window.destroy()
+
+    annotation_type = annotation_type_var.get()
+
+    quick_fill_window.title(f"Quick Fill {annotation_type}")
+
+    text_variable = tk.StringVar(quick_fill_window)
+    text_variable.set("")
+
+    left_character_string = tk.StringVar(quick_fill_window)
+    left_character_string.set("")
+    ok_button = tk.Button(quick_fill_window, text="OK", command=on_destroy_save_changes, state="normal")
+
+    tk.Entry(quick_fill_window, font=CHINESE_FONT_FILE,
+             textvariable=text_variable).pack()
+    tk.Label(quick_fill_window, textvariable=left_character_string).pack()
+    ok_button.pack()
+
+    quick_fill_window.wait_window()
+
+    return exit_save_var.get(), text_variable.get()
+
+
 class NotationAnnotationFrame:
-    def __init__(self, window_handle, program_state: ProgramState):
+    def __init__(self, window_handle, program_state: ProgramState, simple=False):
         self.window_handle = window_handle
         self.program_state = program_state
+        self.simple = simple
 
         self.frame = tk.Frame(self.window_handle)
 
@@ -318,9 +362,10 @@ class NotationAnnotationFrame:
             return symbol_frame
 
         def on_quick_fill():
-            exit_save_var, text_variable = exec_quick_fill_window_suzipu(self.program_state.gui_state.tk_current_boxtype, self.program_state.gui_state.tk_num_all_boxes_of_current_type)
+            exit_save_var, text_variable = exec_quick_fill_window(self.program_state.gui_state.tk_current_boxtype,
+                                                                  self.program_state.gui_state.tk_num_all_boxes_of_current_type)
             if exit_save_var:
-                self.program_state.fill_all_boxes_of_current_type(text_variable)
+                self.program_state.fill_all_boxes_of_current_type(json.loads(text_variable))
 
         def on_intelligent_assistant():
             make_prediction = askyesno("Intelligent Assistant - Proceed", message="Intelligent Assistant tries to automatically recognize the notation in the boxes.\nIt might take some time, and it overwrites all contents of MUSIC boxes.\nProceed?")
@@ -334,10 +379,11 @@ class NotationAnnotationFrame:
         button_frame = tk.Frame(self.frame)
         quick_fill_button = tk.Button(button_frame, text="Quick Fill...", command=on_quick_fill, state="disabled")
         intelligent_assistant_button = tk.Button(button_frame, text="Intelligent Assistant...", command=on_intelligent_assistant, state="disabled")
-        #quick_fill_button.grid(row=0, column=0)
-        intelligent_assistant_button.grid(row=0, column=1)
 
-        self._widgets += [quick_fill_button, intelligent_assistant_button]
+        if not self.simple:
+            quick_fill_button.grid(row=0, column=0)
+            intelligent_assistant_button.grid(row=0, column=1)
+            self._widgets += [quick_fill_button, intelligent_assistant_button]
 
         symbol_frames = tk.Frame(annotator_frame)
         construct_suzipu_frame(symbol_frames, self.first_musical_var, True).grid(sticky="W", row=0, column=0, padx=10, pady=4)  # upper frame

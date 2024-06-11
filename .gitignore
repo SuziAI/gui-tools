@@ -20,3 +20,5 @@ KuiSCIMA
 OUTPUT
 DEMO
 modify_corpus.py
+*.std
+*.pkl

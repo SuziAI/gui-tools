@@ -9,7 +9,7 @@ import PIL
 from PIL import ImageTk, Image, ImageChops
 
 from src.auxiliary import BoxType
-from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import common_notation_to_jianpu, common_notation_to_western
+from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import common_notation_to_jianpu, common_notation_to_staff
 from src.plugins.suzipu_lvlvpu_gongchepu.suzipu_intelligent_assistant import load_model, load_transforms, predict_all
 from src.programstate import ProgramState
 from src.config import CHINESE_FONT_FILE
@@ -324,7 +324,7 @@ class FullJianzipuAnnotationFrame:
                 for idx, child in enumerate(children):
                     build_node(child, subdict["children"][idx])
             else:
-                self.musical_var.item(node, values=[subdict["content"]])
+                self.musical_var.item(node, values=[str(subdict["content"])])
 
         build_node(self.parent_node, dictionary["content"])
         self.update_annotation(self.get_full_dict())
@@ -363,7 +363,6 @@ class StringNumberAnnotationFrame:
         self._create_frame()
 
     def _create_frame(self):
-
         outer_col = 0
         for label in self.keys.keys():
             current_frame = tk.LabelFrame(self.frame, text=label)
@@ -475,7 +474,7 @@ class LeftHandAnnotationFrame:
         values = []
         children = self.musical_var.get_children("")
         for child in children:
-            values.append(self.musical_var.item(child)["text"])
+            values.append(str(self.musical_var.item(child)["text"]))
         return values
 
     def get_full_dict(self):
@@ -515,10 +514,11 @@ class JianzipuSymbolType:
 
 
 class NotationAnnotationFrame:
-    def __init__(self, window_handle, program_state):
+    def __init__(self, window_handle, program_state, simple=False):
         self.window_handle = window_handle
         self.program_state = program_state
         self.display_image = None
+        self.simple = simple
 
         self.frame = tk.Frame(self.window_handle)
 

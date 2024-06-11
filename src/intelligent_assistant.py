@@ -2,7 +2,7 @@ import numpy as np
 import pytesseract
 
 
-def predict_from_images(image_list, progress, total_progress, update=lambda: None):
+def predict_text_from_images(image_list, progress, total_progress, update=lambda: None):
     char_blacklist = '''0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX{}Y;：Z#「’:_‘、,<>.-^\\'\\"'''
     tesseract_config = f'''--psm 10 -c tessedit_char_blacklist={char_blacklist} --tessdata-dir "./weights"'''
     output = ""

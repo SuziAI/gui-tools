@@ -35,20 +35,38 @@ class PieceProperties(JsonSerializable):
                     lyrics_list = []
 
                     while idx < len(content) and content[idx]["box_type"] == BoxType.MUSIC:
-                        music_list.append({
-                            "box_type": BoxType.MUSIC,
-                            "coordinates": content[idx]["notation_coordinates"],
-                            "annotation": content[idx]["notation_content"],
-                            "is_excluded_from_dataset": content[idx]["is_excluded_from_dataset"],
-                            "is_line_break": content[idx]["is_line_break"]
-                        })
-                        lyrics_list.append({
-                            "box_type": BoxType.LYRICS,
-                            "coordinates": content[idx]["text_coordinates"],
-                            "annotation": content[idx]["text_content"],
-                            "is_excluded_from_dataset": content[idx]["is_excluded_from_dataset"],
-                            "is_line_break": content[idx]["is_line_break"]
-                        })
+                        if content[idx]["text_coordinates"] is not None and content[idx]["notation_coordinates"] is not None:  # coupled lyrics and notation
+                            music_list.append({
+                                "box_type": BoxType.MUSIC,
+                                "coordinates": content[idx]["notation_coordinates"],
+                                "annotation": content[idx]["notation_content"],
+                                "is_excluded_from_dataset": content[idx]["is_excluded_from_dataset"],
+                                "is_line_break": content[idx]["is_line_break"]
+                            })
+                            lyrics_list.append({
+                                "box_type": BoxType.LYRICS,
+                                "coordinates": content[idx]["text_coordinates"],
+                                "annotation": content[idx]["text_content"],
+                                "is_excluded_from_dataset": content[idx]["is_excluded_from_dataset"],
+                                "is_line_break": content[idx]["is_line_break"]
+                            })
+                        elif content[idx]["text_coordinates"] is None and content[idx]["notation_coordinates"] is not None:  # only notation, no lyrics
+                            music_list.append({
+                                "box_type": BoxType.MUSIC_IND,
+                                "coordinates": content[idx]["notation_coordinates"],
+                                "annotation": content[idx]["notation_content"],
+                                "is_excluded_from_dataset": content[idx]["is_excluded_from_dataset"],
+                                "is_line_break": content[idx]["is_line_break"]
+                            })
+                        elif content[idx]["text_coordinates"] is not None and content[idx]["notation_coordinates"] is None:  # only lyrics, no notation
+                            lyrics_list.append({
+                                "box_type": BoxType.LYRICS_IND,
+                                "coordinates": content[idx]["text_coordinates"],
+                                "annotation": content[idx]["text_content"],
+                                "is_excluded_from_dataset": content[idx]["is_excluded_from_dataset"],
+                                "is_line_break": content[idx]["is_line_break"]
+                            })
+
                         if content[idx]["is_line_break"] or idx == len(content)-1:
                             content_list += music_list
                             content_list += lyrics_list

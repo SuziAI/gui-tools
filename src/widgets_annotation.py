@@ -315,6 +315,15 @@ class AnnotationFrame:
         annotations_frame.grid(row=2, column=1)
         self.widgets = [previous_button, current_box_index_display, next_button]
 
+        def keypress_event(key):
+            pressed_key = key.keysym
+            if pressed_key == "Left":
+                previous_button.invoke()
+            elif pressed_key == "Right":
+                next_button.invoke()
+
+        self.program_state.gui_state.main_window.bind("<KeyPress>", keypress_event)
+
         self.box_excluded_checkbox.grid(row=0, column=0, sticky="W")
         self.box_line_break_checkbox.grid(row=1, column=0, sticky="W")
 

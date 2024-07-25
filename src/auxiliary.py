@@ -1,3 +1,4 @@
+import copy
 import dataclasses
 import importlib
 import os
@@ -342,6 +343,18 @@ class BoxesWithType(JsonSerializable):
     def delete_index(self, idx):
         del self.boxes_list[idx]
 
+    def reorder(self, new_order):
+        if len(new_order) == len(self):
+            self.boxes_list = [self.boxes_list[idx] for idx in new_order]
+        else:
+            raise ValueError(f"len of new_order ('{len(new_order)}') must be the same as len of boxes_list ('{len(self)}')")
+
+    def partial_reorder(self, new_order):
+        boxes_copy = copy.deepcopy(self.boxes_list)
+        old_order = sorted(new_order)
+        for idx in range(len(new_order)):
+            self.boxes_list[old_order[idx]] = boxes_copy[new_order[idx]]
+
     def sort(self):
         if len(self):
             def get_center_points(box):
@@ -457,5 +470,6 @@ class BoxManipulationAction:
     CREATE = "Create"
     MARK = "Mark"
     DELETE = "Delete"
-    MOVE_RESIZE = "Move/Resize"
+    MOVE_RESIZE = "Resize/Move"
+    ORDER = "Order"
     ANNOTATE = "Annotate"

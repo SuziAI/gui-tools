@@ -46,7 +46,7 @@ class MainWindow:
 
         def handle_opencv_window():
             ensure_current_image()
-            self.program_state.piece_properties.content, exit_flag = opencv_window.draw_and_handle_clicks(self.program_state.piece_properties,
+            self.program_state.piece_properties.content, exit_flag = opencv_window.draw_and_handle_clicks(self.program_state,
                                                                                                           self.program_state.gui_state.tk_current_action.get(),
                                                                                                           self.program_state.gui_state.tk_current_boxtype.get(),
                                                                                                           self.program_state.gui_state.current_image,
@@ -445,7 +445,7 @@ class MainWindow:
         notation_window.title("Suzipu Musical Annotation Tool - Notation Display")
         notation_window.protocol("WM_DELETE_WINDOW", lambda: None)
         notation_window.resizable(False, False)
-        #display_notes_frame = AdditionalInfoFrame(notation_window, self.gui_state.gui_state.tk_current_mode_string, on_save_notation, on_save_musicxml, self.program_state.get_mode_string)
+        #display_notes_frame = AdditionalInfoFrame(notation_window, self.gui_state.gui_state.tk_current_mode_string, on_save_notation, on_save_musicxml, self.piece_properties.get_mode_string)
         display_notes_frame = DisplayNotesFrame(notation_window, on_save_notation, on_save_musicxml)
 
         def reset_annotation_vars():
@@ -548,6 +548,7 @@ class OpenCvWindow:
         self.point_2 = None
         self.is_clicked = False
         self.segmentation_boxes = BoxesWithType()
+        self.new_order = []
 
         cv2.namedWindow(self.window_name, cv2.WINDOW_GUI_NORMAL)
         cv2.resizeWindow(self.window_name, 600, 600)
@@ -569,25 +570,51 @@ class OpenCvWindow:
         if event == cv2.EVENT_MOUSEMOVE:
             self.current_mouse_coordinates = (x, y)
 
-    def draw_and_handle_clicks(self, program_state, selection_mode, boxtype, current_image, current_annotation_idx, set_current_annotation_idx = lambda: None):
-        self.segmentation_boxes = program_state.content
+    def draw_and_handle_clicks(self, program_state: ProgramState, selection_mode, boxtype, current_image, current_annotation_idx, set_current_annotation_idx = lambda: None):
+        self.segmentation_boxes = program_state.piece_properties.content
 
         exit_flag = False
         self.draw_image = copy.deepcopy(current_image)
 
         keypress = cv2.waitKey(1)
+
+        if keypress in [ord('n'), ord('c'), ord('m'), ord('d'), ord('r'), ord('o'), ord('a')]:
+            program_state.gui_state.main_window.focus_force()
+            program_state.gui_state.main_window.event_generate(f"<KeyPress-{chr(keypress)}>")
+
         # exit if q is pressed or the red x button in the window
         if keypress == ord('q'): #or cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) < 1:
             exit_flag = True
 
-        if self.current_mouse_coordinates and self.is_clicked and selection_mode in [BoxManipulationAction.MARK, BoxManipulationAction.DELETE, BoxManipulationAction.ANNOTATE]:
-            if program_state.content:
-                for idx, box in enumerate(program_state.content.get_coordinates()):
+        if selection_mode == BoxManipulationAction.ORDER:
+            if keypress == 8:  # Backslash
+                self.new_order.pop()
+            elif keypress == 10 or keypress == 13:  # Enter
+                program_state.piece_properties.content.partial_reorder(self.new_order)
+                self.new_order = []
+
+            if self.current_mouse_coordinates and self.is_clicked:
+                if program_state.piece_properties.content:
+                    for idx, box in enumerate(program_state.piece_properties.content.get_coordinates()):
+                        if idx not in self.new_order and is_point_in_rectangle(self.current_mouse_coordinates, box):
+                            self.new_order.append(idx)
+            for idx in self.new_order:
+                start, end = program_state.piece_properties.content.get_index_coordinates(idx)
+                self.draw_image = cv2.rectangle(self.draw_image, start, [end[0] - 1, end[1] - 1], Colors.VIOLET, 8)
+            if len(self.new_order) == len(program_state.piece_properties.content):
+                program_state.piece_properties.content.reorder(self.new_order)
+                self.new_order = []
+        else:
+            self.new_order = []
+
+        if self.current_mouse_coordinates and self.is_clicked and selection_mode in [BoxManipulationAction.MARK, BoxManipulationAction.DELETE, BoxManipulationAction.ORDER, BoxManipulationAction.ANNOTATE]:
+            if program_state.piece_properties.content:
+                for idx, box in enumerate(program_state.piece_properties.content.get_coordinates()):
                     if is_point_in_rectangle(self.current_mouse_coordinates, box):
                         if selection_mode == BoxManipulationAction.MARK:
-                            program_state.content.set_index_type(idx, boxtype)
+                            program_state.piece_properties.content.set_index_type(idx, boxtype)
                         if selection_mode == BoxManipulationAction.DELETE:
-                            program_state.content.delete_index(idx)
+                            program_state.piece_properties.content.delete_index(idx)
                         if selection_mode == BoxManipulationAction.ANNOTATE:
                             set_current_annotation_idx(idx)
                         break
@@ -609,7 +636,7 @@ class OpenCvWindow:
         elif selection_mode == BoxManipulationAction.MOVE_RESIZE:
             if self.current_move_box_idx is None:
                 if self.point_1 is not None:
-                    for idx, box in enumerate(program_state.content.get_coordinates()):
+                    for idx, box in enumerate(program_state.piece_properties.content.get_coordinates()):
                         if is_point_in_rectangle(self.point_1, box):
                             self.current_move_box_idx = idx
                             top_y = max(box[0][1], box[1][1])
@@ -691,14 +718,14 @@ class OpenCvWindow:
             self.point_2 = None
             self.move_direction = None
 
-        if program_state.content:
-            for idx in range(len(program_state.content.get_coordinates())):
-                start, end = program_state.content.get_index_coordinates(idx)
+        if program_state.piece_properties.content:
+            for idx in range(len(program_state.piece_properties.content.get_coordinates())):
+                start, end = program_state.piece_properties.content.get_index_coordinates(idx)
                 if current_annotation_idx is not None and idx == current_annotation_idx:  #currently selected box should be drawn thicker
                     self.draw_image = cv2.rectangle(self.draw_image, start, [end[0]-1, end[1]-1], Colors.VIOLET, 8)
                 else:
                     self.draw_image = cv2.rectangle(self.draw_image, start, [end[0]-1, end[1]-1], box_property_to_color(
-                        program_state.content.get_index_type(idx)), self.program_state.gui_state.draw_box_width.get())
+                        program_state.piece_properties.content.get_index_type(idx)), self.program_state.gui_state.draw_box_width.get())
 
 
         cv2.imshow(self.window_name, self.draw_image)

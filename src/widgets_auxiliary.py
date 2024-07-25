@@ -133,6 +133,26 @@ class SelectionFrame:
             tk.Radiobutton(frame1, text=selection_mode, variable=self.selectionmode_var,
                            value=selection_mode, indicator=0, command=command).grid(row=0, column=idx)
 
+            def keypress_event(key):
+                pressed_key = key.keysym
+                if self.selectionmode_var.get() != BoxManipulationAction.ANNOTATE:  # don't change when in annotate mode, because the focus could be in a textbox!
+                    if pressed_key == "n":
+                        self.selectionmode_var.set(BoxManipulationAction.NO_ACTION)
+                    elif pressed_key == "c":
+                        self.selectionmode_var.set(BoxManipulationAction.CREATE)
+                    elif pressed_key == "m":
+                        self.selectionmode_var.set(BoxManipulationAction.MARK)
+                    elif pressed_key == "d":
+                        self.selectionmode_var.set(BoxManipulationAction.DELETE)
+                    elif pressed_key == "r":
+                        self.selectionmode_var.set(BoxManipulationAction.MOVE_RESIZE)
+                    elif pressed_key == "o":
+                        self.selectionmode_var.set(BoxManipulationAction.ORDER)
+                    elif pressed_key == "a":
+                        self.selectionmode_var.set(BoxManipulationAction.ANNOTATE)
+                    command()
+            self.program_state.gui_state.main_window.bind("<KeyRelease>", keypress_event)
+
         for idx, boxtype_button in enumerate(boxtype_buttons):
             boxtype_button.grid(row=0, column=idx)
 

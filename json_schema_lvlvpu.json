@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Monophonic Chinese Notation Music Format: Lülüpu format",
+  "description": "Digital representation of a Chinese music piece (this includes Suzipu, Lülüpu and Jianzipu notations).",
+  "type": "object",
+  "properties": {
+    "version": {
+      "description": "The version number of the notation format used by the piece.",
+      "type": "string"
+    },
+    "notation_type": {
+      "description": "The notation type the piece uses, this must be 'Lvlvpu' in this case.",
+      "type": "string",
+      "enum": [
+        "Lvlvpu"
+      ]
+    },
+    "composer": {
+      "description": "The piece's composer.",
+      "type": "string"
+    },
+    "mode_properties": {
+      "description": "The properties referring to the mode of the piece."
+    },
+    "images": {
+      "description": "This field contains the list of relative paths to the image files belonging to the piece in the right order.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Relative path to the image file."
+      }
+    },
+    "content": {
+      "description": "List of all boxes corresponding to the individual semantic unities of the piece, e.g., title characters, preface characters, or musical information boxes containing the lyrics and notational information.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "description": "Properties of a single box.",
+        "properties": {
+          "box_type": {
+            "description": "The annotation type of the box, i.e., 'Title', 'Mode', 'Preface', 'Music', or 'Unmarked.",
+            "type": "string",
+            "enum": [
+              "Title",
+              "Mode",
+              "Preface",
+              "Music",
+              "Lyrics",
+              "Unmarked"
+            ]
+          },
+          "is_excluded_from_dataset": {
+            "description": "If true, when exporting the image dataset from the corpus, this box is not included. This is advisable if the image data in the box is distorted by artifacts or the annotation content does not fit to the image content.",
+            "type": "boolean"
+          },
+          "is_line_break": {
+            "description": "If true, the box is taken to be the last box before a column break.",
+            "type": "boolean"
+          },
+          "text_coordinates": {
+            "description": "The segmentation box coordinates (upper left and lower right corners) for textual information, including lyrics.",
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "description": "The point's x and y coordinates.",
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            ]
+          },
+          "text_content": {
+            "description": "The textual content of the box. A text-based box should contain up to one character and optionally a punctuation mark."
+          },
+          "notation_coordinates": {
+            "description": "The segmentation box coordinates (upper left and lower right corners) for notational information.",
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "description": "The point's x and y coordinates.",
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            ]
+          },
+          "notation_content": {
+            "description": "The notational content of the box. A notational box may contain a lülü. This should only be filled for boxes of type 'Music'.",
+            "type": "object",
+            "properties": {
+              "pitch": {
+                "description": "The Lülü pitch annotation.",
+                "type": ["null", "string"],
+                "enum": [
+                  null,
+                  "HUANGZHONG",
+                  "DALV",
+                  "TAICU",
+                  "JIAZHONG",
+                  "GUXIAN",
+                  "ZHONGLV",
+                  "RUIBIN",
+                  "LINZHONG",
+                  "YIZE",
+                  "NANLV",
+                  "WUYI",
+                  "YINGZHONG"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "box_type"
+        ]
+      }
+    },
+    "additionalProperties": false
+  },
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "notation_type",
+    "composer",
+    "content"
+  ]
+}

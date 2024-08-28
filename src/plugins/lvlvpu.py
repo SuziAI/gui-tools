@@ -89,7 +89,7 @@ def notation_to_staff(mode, music_list, lyrics_list, line_break_idxs, fingering,
             pass
 
         new_music_list.append({"pitch": melody_symbol, "is_zhezi": is_zhezi})
-    return common_notation_to_staff(RESOURCES.small_font, RESOURCES.smallest_font, None, new_music_list, lyrics_list, line_break_idxs, fingering, return_boxes)
+    return common_notation_to_staff(RESOURCES.small_font, RESOURCES.staff_image_dict, None, new_music_list, lyrics_list, line_break_idxs, fingering, return_boxes)
 
 
 @dataclasses.dataclass

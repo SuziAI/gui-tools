@@ -72,7 +72,7 @@ class NotationResources:
         self.title_font = load_font(70)
 
         self.jianpu_image_dict = load_jianpu_image_dict()
-        self.western_image_dict = load_staff_image_dict()
+        self.staff_image_dict = load_staff_image_dict()
         self.suzipu_image_dict = load_suzipu_image_dict()
 
 
@@ -147,11 +147,14 @@ def construct_note_stream(notation_list, lyrics_list, line_break_idxs):
     current_measure = music21.stream.Measure()
     for box_idx, notation in enumerate(notation_list):
 
-        pitch = notation["pitch"]
+        try:
+            pitch = notation["pitch"]
+        except (KeyError, TypeError):
+            pitch = None
 
         try:
             secondary = notation["secondary"]
-        except KeyError:
+        except (KeyError, TypeError):
             secondary = None
 
         if not pitch:
@@ -301,6 +304,20 @@ def determine_image_width(stream):
                 counter = 0
             else:
                 counter += 1
+
+    return max_counter
+
+
+def determine_image_width_manual(lyric_list, line_break_idxs):
+    max_counter = -1
+
+    counter = 0
+    for idx, note in enumerate(lyric_list):
+        if idx in line_break_idxs or idx == len(lyric_list)-1:
+            max_counter = max(counter+1, max_counter)
+            counter = 0
+        else:
+            counter += 1
 
     return max_counter
 
@@ -670,6 +687,82 @@ def _notation_to_textbased(font, notation_font, music_list, lyrics_list, note_to
     return notation_image
 
 
+def notation_to_custom(font, custom_notation_image_list, lyrics_list, line_break_idxs=[], return_boxes=False, is_vertical=False):
+    width = 65
+
+    def switch_coordinates(box):
+        if is_vertical:
+            return box[1], box[0]
+        return box[0], box[1]
+
+    def note_to_whole_image(font, note_img, lyric):
+        whole_img = Image.new('RGB', switch_coordinates((width, 2 * width)), (255, 255, 255))
+
+        text_draw = ImageDraw.Draw(whole_img)
+
+        if note_img is None:
+            if lyric is not None:
+                if is_vertical:
+                    text_draw.text((15, 0), lyric, fill=(0, 0, 0), font=font)
+                else:
+                    text_draw.text((10, width), lyric, fill=(0, 0, 0), font=font)
+        else:
+            if is_vertical:
+                whole_img.paste(note_img, (85, 15))
+                if lyric is not None:
+                    text_draw.text((15, 0), lyric, fill=(0, 0, 0), font=font)
+            else:
+                whole_img.paste(note_img, (17, 30))
+                if lyric is not None:
+                    text_draw.text((10, width), lyric, fill=(0, 0, 0), font=font)
+
+        return whole_img
+
+    def construct_notation_image(custom_notation_image_list, lyrics_list, line_break_idxs) -> tuple:
+        image_width = determine_image_width_manual(lyrics_list, line_break_idxs)
+        image_height = len(line_break_idxs) + 1
+
+        current_row_counter = 0
+
+        boxes = []
+
+        if image_width * image_height <= 0:
+            return Image.new('RGB', switch_coordinates((width, width * 3)), (255, 255, 255)), boxes
+
+        whole_image_width = width * image_width
+        whole_image_height = image_height * width * 3
+        whole_image = Image.new('RGB', switch_coordinates((whole_image_width, whole_image_height)), (255, 255, 255))
+
+        idx = 0
+        for box_idx, (note, lyric) in enumerate(zip(custom_notation_image_list, lyrics_list)):
+            if is_vertical:
+                current_img = note_to_whole_image(font, note, lyric)
+                whole_image.paste(current_img, switch_coordinates((width * idx, whole_image_height - 3*width - current_row_counter * width * 3)))
+                boxes.append((switch_coordinates((width * idx, whole_image_height - 3*width - current_row_counter * width * 3)),
+                              switch_coordinates((width + width * idx, whole_image_height - 3*width - current_row_counter * width * 3 + 2 * width))))
+            else:
+                current_img = note_to_whole_image(font, note, lyric)
+                whole_image.paste(current_img, switch_coordinates((width * idx, current_row_counter * width * 3)))
+                boxes.append((switch_coordinates((width * idx, current_row_counter * width * 3)),
+                              switch_coordinates((width + width * idx, current_row_counter * width * 3 + 2 * width))))
+            if box_idx in line_break_idxs:
+                current_row_counter += 1
+                idx = 0
+            else:
+                idx += 1
+        return whole_image, boxes
+
+    try:
+        notation_image, boxes = construct_notation_image(custom_notation_image_list, lyrics_list, line_break_idxs)
+    except Exception as e:
+        print("EX", e)
+        return None
+
+    if return_boxes:
+        return notation_image, boxes
+    return notation_image
+
+
 def notation_to_gongchepu(font, gongche_font, music_list, lyrics_list, line_break_idxs=[], return_boxes=False, is_vertical=False):
     return _notation_to_textbased(font, gongche_font, music_list, lyrics_list, GongcheMelodySymbol.to_gongche, line_break_idxs, return_boxes, is_vertical)
 
@@ -801,7 +894,7 @@ def write_to_musicxml(file_path, suzipu_list, lyrics_list, fingering=Fingering.A
     return None
 
 
-def construct_metadata_image(title_font, text_font, title, mode, preface, image_width=None, is_vertical=False, composer=None):
+def construct_metadata_image(title_font, text_font, title, mode, preface, image_width=None, is_vertical=False, composer=""):
     def adjust_to_vertical(string: str):
         string = string.replace("，", "︐")
         string = string.replace(",", "︐")

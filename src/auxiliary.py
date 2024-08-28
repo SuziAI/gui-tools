@@ -40,8 +40,8 @@ def pil_to_cv(pil_image):
     return open_cv_image[:, :, ::-1].copy()
 
 
-def state_to_json(program_state, gui_state):
-    program_state_json = program_state.dump()
+def state_to_json(piece_properties, gui_state):
+    program_state_json = piece_properties.dump()
     content = program_state_json["content"]
 
     new_content = []
@@ -69,7 +69,7 @@ def state_to_json(program_state, gui_state):
             })
 
     if len(music_list) != len(lyrics_list):
-        raise AssertionError("File could not be saved: The number of music boxes must be equal to number of lyrics boxes.")
+        raise AssertionError("File could not be saved: The number of music boxes must be equal to number of lyrics boxes. In case of independent music or lyrics boxes, please use 'Music (ind.)' or 'Lyrics (ind.) box type.")
 
     for idx in range(len(music_list)):
         text_box = lyrics_list[idx]
@@ -355,7 +355,7 @@ class BoxesWithType(JsonSerializable):
         for idx in range(len(new_order)):
             self.boxes_list[old_order[idx]] = boxes_copy[new_order[idx]]
 
-    def sort(self):
+    def sort(self, modern=False):
         if len(self):
             def get_center_points(box):
                 (x1, y1), (x2, y2) = box
@@ -366,19 +366,31 @@ class BoxesWithType(JsonSerializable):
                 coordinate = self.get_index_coordinates(idx)
                 center_points.append([idx, get_center_points(coordinate)[0], get_center_points(coordinate)[1]])
 
-            center_points.sort(key=lambda element: element[1], reverse=True)  # read from right to left
-            center_points = np.array(center_points)
-            split_indices = np.stack((np.arange(len(self) - 1), abs(center_points[1:, 1] - center_points[:-1, 1])),
-                                     axis=1)
-
-            split_indices = split_indices[split_indices[:, 1] > 20, :]
-            split_indices = np.concatenate(([0], split_indices[:, 0] + 1, [None]))
+            if modern:
+                center_points.sort(key=lambda element: element[2], reverse=False)  # read columns from right to left
+                center_points = np.array(center_points)
+                split_indices = np.stack((np.arange(len(self) - 1), abs(center_points[1:, 2] - center_points[:-1, 2])),
+                                         axis=1)
+                split_indices = split_indices[split_indices[:, 1] > 20, :]
+                split_indices = np.concatenate(([0], split_indices[:, 0] + 1, [None]))
+            else:
+                center_points.sort(key=lambda element: element[1], reverse=True)  # read rows from top to bottom
+                center_points = np.array(center_points)
+                split_indices = np.stack((np.arange(len(self) - 1), abs(center_points[1:, 1] - center_points[:-1, 1])),
+                                         axis=1)
+                split_indices = split_indices[split_indices[:, 1] > 20, :]
+                split_indices = np.concatenate(([0], split_indices[:, 0] + 1, [None]))
 
             sorted_idxs = []
             line_break_idxs = []
             for idx in range(len(split_indices) - 1):
                 idxs = center_points[split_indices[idx]:split_indices[idx + 1], :].tolist()
-                idxs.sort(key=lambda element: element[2])  # read from top to bottom
+
+                if modern:
+                    idxs.sort(key=lambda element: element[1])  # read inside row from left to right
+                else:
+                    idxs.sort(key=lambda element: element[2])  # read inside column from top to bottom
+
                 idxs = np.array(idxs)
                 sorted_idxs += idxs[:, 0].tolist()
                 line_break_idxs.append(sorted_idxs[-1])

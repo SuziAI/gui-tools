@@ -24,7 +24,7 @@ DISPLAY_NOTATION = True
 RESOURCES = NotationResources()
 
 
-def notation_to_own(mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes, is_vertical):
+def notation_to_own(mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes=False, is_vertical=False):
     return notation_to_suzipu(
                     RESOURCES.small_font,
                     RESOURCES.suzipu_image_dict,
@@ -39,7 +39,7 @@ def notation_to_jianpu(mode, music_list, lyrics_list, line_break_idxs, fingering
 
 
 def notation_to_staff(mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes=False, is_vertical=False):
-    return common_notation_to_staff(RESOURCES.small_font, RESOURCES.western_image_dict, mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes)
+    return common_notation_to_staff(RESOURCES.small_font, RESOURCES.staff_image_dict, mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes)
 
 
 class IntelligentAssistantFrame:

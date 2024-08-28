@@ -74,6 +74,10 @@
     ]
   },
   "FullJianzipuAnnotation": {
+    "Other Symbols":[
+        "O_CONGTOUZAIZUO",
+        "O_QUZHONG"
+      ],
     "Technique": [
       "TECHNIQUE_SAN_YIN",
       "TECHNIQUE_FAN_YIN",

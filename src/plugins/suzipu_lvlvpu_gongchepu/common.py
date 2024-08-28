@@ -4,7 +4,7 @@ import tkinter as tk
 import chinese_converter
 
 from src.auxiliary import open_file_as_tk_image
-from src.config import JIANPU_BUTTON_IMAGE, FIVELINE_BUTTON_IMAGE, SUZIPU_IMAGE_PATH
+from src.config import JIANPU_BUTTON_IMAGE, FIVELINE_BUTTON_IMAGE, SUZIPU_IMAGE_PATH, NOTATION_BUTTON_IMAGE
 from src.fingering import Fingering
 
 
@@ -465,6 +465,12 @@ class GongdiaoModeList:
             return GongdiaoModeList.NO_MODE
 
 
+class NotationDisplayTypes:
+    NOTATION_SPECIFIC: str = "Notation Specific"
+    JIANPU: str = "Jianpu"
+    STAFF: str = "Staff"
+
+
 class DisplayNotesFrame:
     def __init__(self, window_handle, on_save_notation=lambda: None, on_save_musicxml=lambda: None):
         self.window_handle = window_handle
@@ -472,15 +478,32 @@ class DisplayNotesFrame:
         self.on_save_musicxml = on_save_musicxml
         self.frame = tk.LabelFrame(self.window_handle, text="Modern Notation")
         self._image = None
-        self.label = tk.Label(self.frame, image=None, relief="sunken", state="disabled")
-        self.var_is_jianpu = tk.BooleanVar()
-        self.var_is_jianpu.set(True)
+
+        self.canvas = tk.Canvas(self.frame, relief="sunken", state="disabled")
+        hbar = tk.Scrollbar(self.frame, orient=tk.HORIZONTAL)
+        hbar.pack(side="bottom", fill=tk.BOTH)
+        hbar.config(command=self.canvas.xview)
+        vbar = tk.Scrollbar(self.frame, orient=tk.VERTICAL)
+        vbar.pack(side=tk.RIGHT, fill=tk.BOTH)
+        vbar.config(command=self.canvas.yview)
+        self.canvas.config(xscrollcommand=hbar.set, yscrollcommand=vbar.set)
+        def onFrameConfigure(event):
+            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self.frame.bind("<Configure>", onFrameConfigure)
+
+        self.display_notation = tk.StringVar()
+        self.display_notation.set(NotationDisplayTypes.NOTATION_SPECIFIC)
+
+        self.is_active = False
 
         self.transposition_string = tk.StringVar()
         self.transposition_string.set(Fingering.ALL_CLOSED_AS_1.name)
 
-        self.widgets = [self.label]
+        self.is_vertical = tk.BooleanVar(value=True)
 
+        self.widgets = [self.canvas]
+
+        self.notation_image = open_file_as_tk_image(NOTATION_BUTTON_IMAGE)
         self.jianpu_image = open_file_as_tk_image(JIANPU_BUTTON_IMAGE)
         self.fiveline_image = open_file_as_tk_image(FIVELINE_BUTTON_IMAGE)
 
@@ -490,29 +513,43 @@ class DisplayNotesFrame:
         fingering_names = [fingering.name for fingering in dataclasses.astuple(Fingering())]
 
         selection_frame = tk.Frame(self.frame)
-        jianpu_button = tk.Radiobutton(selection_frame, image=self.jianpu_image, variable=self.var_is_jianpu,
-                       value=True,
-                       indicator=0, state="disabled")
-        fiveline_button = tk.Radiobutton(selection_frame, image=self.fiveline_image, variable=self.var_is_jianpu,
-                       value=False,
-                       indicator=0, state="disabled")
+
+        def update_checkbox(*args):
+            vertical_checkbox.config(state="normal" if self.display_notation.get() == NotationDisplayTypes.NOTATION_SPECIFIC and self.is_active else "disabled")
+            if self.display_notation.get() != NotationDisplayTypes.NOTATION_SPECIFIC:
+                self.is_vertical.set(False)
+
+        notation_button = tk.Radiobutton(selection_frame, image=self.notation_image, variable=self.display_notation,
+                                         value=NotationDisplayTypes.NOTATION_SPECIFIC,
+                                         indicator=0, state="disabled", command=update_checkbox)
+        jianpu_button = tk.Radiobutton(selection_frame, image=self.jianpu_image, variable=self.display_notation,
+                                       value=NotationDisplayTypes.JIANPU,
+                                       indicator=0, state="disabled", command=update_checkbox)
+        staff_button = tk.Radiobutton(selection_frame, image=self.fiveline_image, variable=self.display_notation,
+                                         value=NotationDisplayTypes.STAFF,
+                                         indicator=0, state="disabled", command=update_checkbox)
         transposition_menu = tk.OptionMenu(selection_frame, self.transposition_string, *fingering_names)
         save_notation_to_file_button = tk.Button(selection_frame, text="Export Notation as Image", command=self.on_save_notation)
         save_notation_to_musicxml_button = tk.Button(selection_frame, text="Export Notation as MusicXML",
                                                  command=self.on_save_musicxml)
 
-        jianpu_button.grid(row=0, column=0)
-        fiveline_button.grid(row=0, column=1)
-        transposition_menu.grid(row=0, column=2)
-        save_notation_to_file_button.grid(row=0, column=4)
-        save_notation_to_musicxml_button.grid(row=0, column=5)
+        vertical_checkbox = tk.Checkbutton(selection_frame, variable=self.is_vertical, text="Trad. Reading Order")
 
-        self.widgets += [jianpu_button, fiveline_button, transposition_menu, save_notation_to_file_button, save_notation_to_musicxml_button]
+        notation_button.grid(row=0, column=0)
+        jianpu_button.grid(row=0, column=1)
+        staff_button.grid(row=0, column=2)
+        transposition_menu.grid(row=0, column=3)
+        vertical_checkbox.grid(row=0, column=4)
+        save_notation_to_file_button.grid(row=0, column=5)
+        save_notation_to_musicxml_button.grid(row=0, column=6)
+
+        self.widgets += [notation_button, jianpu_button, staff_button, transposition_menu, save_notation_to_file_button, save_notation_to_musicxml_button]
 
         selection_frame.pack()
-        self.label.pack(padx=10, pady=10)
+        self.canvas.pack(padx=10, pady=10)
 
     def set_state(self, boolean):
+        self.is_active = boolean
         state = "disabled"
         if boolean:
             state = "normal"
@@ -522,13 +559,18 @@ class DisplayNotesFrame:
 
     def set_image(self, image):
         self._image = image
-        self.label.config(image=self._image)
+        image_on_canvas = self.canvas.create_image(0, 0, image=self._image, anchor="nw")
+        #self.canvas.itemconfig(image_on_canvas, image=self._image)
+        self.canvas.config(width=self._image.width() if self._image.width() < 1400 else 1400, height=self._image.height() if self._image.height() < 700 else 700)
 
     def get_frame(self):
         return self.frame
 
-    def is_jianpu(self):
-        return self.var_is_jianpu.get()
+    def get_notation_display_type(self):
+        return self.display_notation.get()
+
+    def get_traditional_reading_order(self):
+        return self.is_vertical.get()
 
     def get_transposition(self):
         return Fingering.from_string(self.transposition_string.get())
@@ -877,7 +919,7 @@ class AdditionalInfoFrame:
         return self.frame
 
     def is_jianpu(self):
-        return self.display_frame.is_jianpu()
+        return self.display_frame.get_notation_display_type()
 
     def get_transposition(self):
         return self.display_frame.get_transposition()

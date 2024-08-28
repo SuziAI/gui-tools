@@ -25,8 +25,9 @@ from src.config import GO_INTO_ANNOTATION_MODE_IMAGE, INVALID_MODE_IMAGE, PLUGIN
 from src.widgets_auxiliary import on_closing, IncrementDecrementFrame, PreviousNextFrame, \
     SelectionFrame, SaveLoadFrame, PiecePropertiesFrame
 from src.widgets_annotation import AnnotationFrame
-from src.plugins.suzipu_lvlvpu_gongchepu.common import GongdiaoModeList, DisplayNotesFrame
-from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import common_notation_to_jianpu, common_notation_to_staff, construct_metadata_image, vertical_composition, add_border, write_to_musicxml
+from src.plugins.suzipu_lvlvpu_gongchepu.common import GongdiaoModeList, DisplayNotesFrame, NotationDisplayTypes
+from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import construct_metadata_image, vertical_composition, \
+    add_border, write_to_musicxml, horizontal_composition
 
 
 class MainWindow:
@@ -37,6 +38,8 @@ class MainWindow:
         self.program_state = ProgramState(piece_properties=PieceProperties(), gui_state=GuiState(self.main_window, weights_path))
 
     def exec(self):
+        self.program_state.gui_state.main_window.bind("<Control-s>", lambda x: on_save())
+
         opencv_window = OpenCvWindow("Chinese Musical Annotation Tool - Canvas", self.program_state)
 
         def ensure_current_image():
@@ -63,6 +66,10 @@ class MainWindow:
 
         def on_infer_order():
             self.program_state.piece_properties.content.sort()
+            create_sorted_segmentation_type_groups()
+
+        def on_infer_order_modern():
+            self.program_state.piece_properties.content.sort(modern=True)
             create_sorted_segmentation_type_groups()
 
         def on_min_bounding_rect():
@@ -132,12 +139,22 @@ class MainWindow:
         go_into_annotation_mode_image = open_file_as_tk_image(GO_INTO_ANNOTATION_MODE_IMAGE)
         plugin_not_support_notation_image = open_file_as_tk_image(PLUGIN_NOT_SUPPORT_NOTATION_IMAGE)
 
-        def get_content_list(key: str):
-            try:
-                return [self.program_state.piece_properties.content.get_index_annotation(box_idx) for box_idx in
-                        self.program_state.gui_state.type_to_cycle_dict[key].list]
-            except AttributeError:
-                return None
+        def get_display_content_list():
+            music_list = []
+            lyrics_list = []
+            line_break_idxs = []
+            json_state = state_to_json(self.program_state.piece_properties, self.program_state.gui_state)
+
+            idx = 0
+            for box in json_state["content"]:
+                if box["box_type"] == BoxType.MUSIC:
+                    music_list.append(box["notation_content"] if box["notation_content"] else None)
+                    lyrics_list.append(box["text_content"] if box["text_content"] else " ")
+                    if box["is_line_break"]:
+                        line_break_idxs.append(idx)
+                    idx += 1
+
+            return music_list, lyrics_list, line_break_idxs
 
         def get_line_break_indices(key):
             raw_indices = self.program_state.piece_properties.content.get_line_break_indices()
@@ -152,13 +169,7 @@ class MainWindow:
             if self.program_state.gui_state.tk_current_action.get() != BoxManipulationAction.ANNOTATE:
                 return None
 
-            try:
-                music_list = get_content_list(BoxType.MUSIC)
-                lyrics_list = get_content_list(BoxType.LYRICS)
-                line_break_idxs = get_line_break_indices(BoxType.LYRICS)
-            except KeyError:
-                return None
-
+            music_list, lyrics_list, line_break_idxs = get_display_content_list()
             mode = GongdiaoModeList.from_string(self.program_state.gui_state.tk_current_mode_string.get())
 
             fingering = display_notes_frame.get_transposition()
@@ -167,17 +178,24 @@ class MainWindow:
             module = importlib.import_module(f"src.plugins.{plugin_name}")
 
             try:
-                if display_notes_frame.is_jianpu():
+                if display_notes_frame.get_notation_display_type() == NotationDisplayTypes.NOTATION_SPECIFIC:
+                    notation_img = module.notation_to_own(mode,
+                                          music_list, lyrics_list,
+                                          line_break_idxs,
+                                          fingering, is_vertical=display_notes_frame.get_traditional_reading_order())
+                elif display_notes_frame.get_notation_display_type() == NotationDisplayTypes.JIANPU:
                     notation_img = module.notation_to_jianpu(mode,
-                                                          music_list, lyrics_list,
-                                                          line_break_idxs,
-                                                          fingering)
-                else:
+                                                             music_list, lyrics_list,
+                                                             line_break_idxs,
+                                                             fingering)
+                elif display_notes_frame.get_notation_display_type() == NotationDisplayTypes.STAFF:
                     notation_img = module.notation_to_staff(mode,
-                                                           music_list, lyrics_list,
-                                                           line_break_idxs,
-                                                           fingering)
-            except NotImplementedError:
+                                                            music_list, lyrics_list,
+                                                            line_break_idxs,
+                                                            fingering)
+                else:
+                    return None
+            except (NotImplementedError, AttributeError):
                 return None
 
             return notation_img
@@ -198,14 +216,22 @@ class MainWindow:
                             string += "\n"
                 return string
 
+            mode_str = f"{get_content_string(BoxType.MODE)}"
+            mode = GongdiaoModeList.from_string(self.program_state.gui_state.tk_current_mode_string.get())
+            if mode.final_note is None or mode.gong_lvlv is None:
+                mode_str += f"（{mode.chinese_name}）"
+
             notation_img = get_notation_image()
+            if notation_img is None:
+                return None
             metadata_img = construct_metadata_image(self.program_state.gui_state.notation_resources.title_font,
                                                     self.program_state.gui_state.notation_resources.small_font,
                                                     get_content_string(BoxType.TITLE),
-                                                    f"{get_content_string(BoxType.MODE)}（{GongdiaoModeList.from_string(self.program_state.gui_state.tk_current_mode_string.get()).chinese_name}）",
+                                                    mode_str,
                                                     get_content_string(BoxType.PREFACE),
-                                                    image_width=notation_img.width)
-            combined_img = vertical_composition([metadata_img, notation_img])
+                                                    image_width=notation_img.width,
+                                                    is_vertical=display_notes_frame.get_traditional_reading_order())
+            combined_img = horizontal_composition([notation_img, metadata_img]) if display_notes_frame.get_traditional_reading_order() else vertical_composition([metadata_img, notation_img])
             combined_img = add_border(combined_img, 150, 200)
             return combined_img
 
@@ -320,17 +346,17 @@ class MainWindow:
                             self.program_state.piece_properties.content.get_index_annotation(box_idx) for box_idx in
                             self.program_state.gui_state.type_to_cycle_dict[key].list]
 
-                        if key == BoxType.MUSIC:
+                        if key == BoxType.MUSIC or key == BoxType.MUSIC_IND:
                             return json.dumps(raw_content_list)
                         else:
                             content_string = ""
                             for string in raw_content_list:
                                 if string == "":  # if empty box, display as blank
                                     string = " "
-                                content_string += string
-                                if key == BoxType.MUSIC:
+                                content_string += str(string)
+                                if key == BoxType.MUSIC or key == BoxType.MUSIC_IND:
                                     content_string += "|"
-                            if key == BoxType.MUSIC:
+                            if key == BoxType.MUSIC or key == BoxType.MUSIC_IND:
                                 return content_string[0:-1]  # remove the last '|'
                             return content_string
                     except KeyError:
@@ -422,21 +448,27 @@ class MainWindow:
         right_increment_decrement.pack(pady=3)
         increment_decrement_subframe.grid(row=0, column=1)
 
-        segmentation_frame = tk.LabelFrame(self.main_window, text="Segmentation and Order")
-        inner_frame = tk.Frame(segmentation_frame)
+        segmentation_order_frame = tk.Frame(self.main_window)
+        segmentation_frame = tk.LabelFrame(segmentation_order_frame, text="Segmentation")
         #invert_order_checkbutton = tk.Checkbutton(checkbox_options_frame, text='Invert order', variable=self.gui_state.gui_state.self.gui_state.gui_state.tk_display_images_in_reversed_order,
         #                                          onvalue=1, offvalue=0, command=must_be_changed)
-        segment_pages_individually_checkbutton = tk.Checkbutton(inner_frame, text='Segment individually',
+        segment_pages_individually_checkbutton = tk.Checkbutton(segmentation_frame, text='Segment individually',
                                                                 variable=self.program_state.gui_state.tk_segmentation_individual_pages, onvalue=1,
                                                                 offvalue=0, command=must_be_changed)
-        segmentation_button = tk.Button(inner_frame, text="Auto-Segmentation", command=self.program_state.make_new_segmentation)
-        infer_order_button = tk.Button(inner_frame, text="Infer Box Order and Column Breaks", command=on_infer_order)
-        min_bounding_rect = tk.Button(inner_frame, text="Min Bounding Rectangles", command=on_min_bounding_rect)
-        segmentation_button.grid(row=0, column=0)
-        min_bounding_rect.grid(row=0, column=1)
-        infer_order_button.grid(row=0, column=2)
-        segment_pages_individually_checkbutton.grid(row=1, column=0)
-        inner_frame.pack(padx=10, pady=3)
+        segmentation_button = tk.Button(segmentation_frame, text="Auto-Segmentation", command=self.program_state.make_new_segmentation)
+        min_bounding_rect = tk.Button(segmentation_frame, text="Min Bounding Rectangles", command=on_min_bounding_rect)
+        segmentation_button.grid(row=0, column=0, padx=2)
+        min_bounding_rect.grid(row=0, column=1, padx=2)
+        segment_pages_individually_checkbutton.grid(row=1, column=0, padx=5)
+        segmentation_frame.grid(row=0, column=0, padx=5, pady=1)
+
+        order_frame = tk.LabelFrame(segmentation_order_frame, text="Box Ordering")
+        infer_order_button = tk.Button(order_frame, text="Auto-Order (Traditional)", command=on_infer_order)
+        infer_order_button_modern = tk.Button(order_frame, text="Auto-Order (Modern)",
+                                              command=on_infer_order_modern)
+        infer_order_button.grid(row=0, column=0, padx=2, pady=2)
+        infer_order_button_modern.grid(row=0, column=1, padx=2, pady=2)
+        order_frame.grid(row=0, column=1, padx=5, pady=1)
 
         save_load_buttons = SaveLoadFrame(self.main_window, on_save_image, on_new, on_save, on_save_text, on_load).get_frame()
         annotation_frame = AnnotationFrame(self.main_window, self.program_state)
@@ -473,16 +505,21 @@ class MainWindow:
 
             plugin_name = self.program_state.gui_state.tk_notation_plugin_selection.get().lower()
             module = importlib.import_module(f"src.plugins.{plugin_name}")
+            curr_action = self.program_state.gui_state.tk_current_action.get()
 
             if module.DISPLAY_NOTATION:
-                notation_img = get_notation_image()
+                if curr_action == BoxManipulationAction.ANNOTATE:
+                    notation_img = get_complete_notation_image()
+                else:
+                    notation_img = None
+
 
                 if notation_img:
                     notation_img = resize_to_width(notation_img)
                     notation_img = ImageTk.PhotoImage(image=notation_img)
                     display_notes_frame.set_image(notation_img)
                 else:
-                    display_notes_frame.set_image(invalid_mode_image)
+                    display_notes_frame.set_image(plugin_not_support_notation_image)
 
                 if self.program_state.gui_state.tk_current_action.get() == BoxManipulationAction.ANNOTATE:
                     display_notes_frame.set_state(True)
@@ -495,11 +532,12 @@ class MainWindow:
 
         def start_opencv_timer():
             handle_opencv_window()
-            self.main_window.after(1, start_opencv_timer)
+            self.main_window.after(10, start_opencv_timer)
 
         def start_notation_window_timer():
             handle_notation_info()
-            self.main_window.after(100, start_notation_window_timer)
+            #self.main_window.after(200, start_notation_window_timer)
+            self.main_window.after(1000, start_notation_window_timer)
 
         def on_activate_deactivate_annotation_frame():
             state = self.program_state.gui_state.tk_current_action.get() == BoxManipulationAction.ANNOTATE and selection_buttons.is_active and len(self.program_state.gui_state.type_to_cycle_dict[self.program_state.gui_state.tk_current_boxtype.get()].list) > 0
@@ -516,7 +554,7 @@ class MainWindow:
 
         prev_next_increment_frame.grid(row=1, column=1, padx=10, pady=3)
 
-        segmentation_frame.grid(row=2, column=1, pady=3)
+        segmentation_order_frame.grid(row=2, column=1, pady=3)
         subframe.grid(row=4, column=1, pady=3)
         annotation_frame.get_frame().grid(row=5, column=1, padx=10, pady=3)
 
@@ -547,6 +585,8 @@ class OpenCvWindow:
         self.point_1 = None
         self.point_2 = None
         self.is_clicked = False
+        self.ctrl_click = False
+        self.alt_click = False
         self.segmentation_boxes = BoxesWithType()
         self.new_order = []
 
@@ -570,6 +610,10 @@ class OpenCvWindow:
         if event == cv2.EVENT_MOUSEMOVE:
             self.current_mouse_coordinates = (x, y)
 
+        self.ctrl_click = flags & cv2.EVENT_FLAG_CTRLKEY
+        self.alt_click = flags & cv2.EVENT_FLAG_ALTKEY
+
+
     def draw_and_handle_clicks(self, program_state: ProgramState, selection_mode, boxtype, current_image, current_annotation_idx, set_current_annotation_idx = lambda: None):
         self.segmentation_boxes = program_state.piece_properties.content
 
@@ -578,9 +622,9 @@ class OpenCvWindow:
 
         keypress = cv2.waitKey(1)
 
-        if keypress in [ord('n'), ord('c'), ord('m'), ord('d'), ord('r'), ord('o'), ord('a')]:
+        if keypress in [ord('s'), ord('n'), ord('c'), ord('m'), ord('d'), ord('r'), ord('o'), ord('a'), ord('1'), ord('2'), ord('3'), ord('4'), ord('5'), ord('6'), ord('7'), ord('8')]:
             program_state.gui_state.main_window.focus_force()
-            program_state.gui_state.main_window.event_generate(f"<KeyPress-{chr(keypress)}>")
+            program_state.gui_state.main_window.event_generate(f"<Control-KeyPress-{chr(keypress)}>")
 
         # exit if q is pressed or the red x button in the window
         if keypress == ord('q'): #or cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) < 1:
@@ -607,17 +651,38 @@ class OpenCvWindow:
         else:
             self.new_order = []
 
+        delete_idxs = []
+        
         if self.current_mouse_coordinates and self.is_clicked and selection_mode in [BoxManipulationAction.MARK, BoxManipulationAction.DELETE, BoxManipulationAction.ORDER, BoxManipulationAction.ANNOTATE]:
             if program_state.piece_properties.content:
                 for idx, box in enumerate(program_state.piece_properties.content.get_coordinates()):
                     if is_point_in_rectangle(self.current_mouse_coordinates, box):
                         if selection_mode == BoxManipulationAction.MARK:
-                            program_state.piece_properties.content.set_index_type(idx, boxtype)
+                            if self.ctrl_click:  # if ctrl is clicked, mark all boxes after the current box, too
+                                for all_later_idxs in range(idx, len(program_state.piece_properties.content)):
+                                    program_state.piece_properties.content.set_index_type(all_later_idxs, boxtype)
+                            elif self.alt_click:  # if alt is clicked, mark all boxes in the current column
+                                for all_later_idxs in range(idx, len(program_state.piece_properties.content)):
+                                    program_state.piece_properties.content.set_index_type(all_later_idxs, boxtype)
+                                    if program_state.piece_properties.content.is_index_line_break(all_later_idxs):
+                                        break
+                            else:
+                                program_state.piece_properties.content.set_index_type(idx, boxtype)
                         if selection_mode == BoxManipulationAction.DELETE:
-                            program_state.piece_properties.content.delete_index(idx)
+                            if self.ctrl_click:
+                                delete_idxs = []
+                                for all_later_idxs in range(idx, len(program_state.piece_properties.content)):
+                                    delete_idxs.append(all_later_idxs)
+                                    if program_state.piece_properties.content.is_index_line_break(all_later_idxs):
+                                        break
+                            else:
+                                program_state.piece_properties.content.delete_index(idx)
                         if selection_mode == BoxManipulationAction.ANNOTATE:
                             set_current_annotation_idx(idx)
                         break
+
+        for delete_idx in delete_idxs:
+            program_state.piece_properties.content.delete_index(delete_idx)
 
         if selection_mode == BoxManipulationAction.CREATE:
             if self.point_1 is not None:
@@ -631,8 +696,8 @@ class OpenCvWindow:
             else:  # draw ruler
                 if self.current_mouse_coordinates is not None:
                     current_x, current_y = self.current_mouse_coordinates
-                    self.draw_image = draw_transparent_line(self.draw_image, (current_x-2, current_y), (current_x+40, current_y), Colors.VIOLET, 1, alpha=0.3)
-                    self.draw_image = draw_transparent_line(self.draw_image, (current_x, current_y-2), (current_x, current_y+40), Colors.VIOLET, 1, alpha=0.3)
+                    self.draw_image = draw_transparent_line(self.draw_image, (current_x-2, current_y), (current_x+60, current_y), Colors.VIOLET, 1, alpha=0.3)
+                    self.draw_image = draw_transparent_line(self.draw_image, (current_x, current_y-2), (current_x, current_y+60), Colors.VIOLET, 1, alpha=0.3)
         elif selection_mode == BoxManipulationAction.MOVE_RESIZE:
             if self.current_move_box_idx is None:
                 if self.point_1 is not None:

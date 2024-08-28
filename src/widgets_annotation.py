@@ -302,27 +302,21 @@ class AnnotationFrame:
         self.current_box_image_display.grid(row=0, column=1)
 
         selection_frame = tk.Frame(self.frame)
-        previous_button = tk.Button(selection_frame, text="<< Previous", command=self.on_previous, state="disabled",
-                                    width=10)
+        previous_button = tk.Button(selection_frame, text="< Previous", command=self.on_previous, state="disabled",
+                                    width=10, underline=0)
         previous_button.grid(row=0, column=0)
         current_box_index_display = tk.Label(selection_frame, height=1, width=10,
                                              textvariable=self.program_state.gui_state.tk_current_box_out_of_current_type,
                                              relief="sunken", state="disabled")
         current_box_index_display.grid(row=0, column=1)
-        next_button = tk.Button(selection_frame, text="Next >>", command=self.on_next, state="disabled", width=10)
+        next_button = tk.Button(selection_frame, text="Next >", command=self.on_next, state="disabled", width=10, underline=5)
         next_button.grid(row=0, column=2)
         selection_frame.grid(row=1, column=1)
         annotations_frame.grid(row=2, column=1)
         self.widgets = [previous_button, current_box_index_display, next_button]
 
-        def keypress_event(key):
-            pressed_key = key.keysym
-            if pressed_key == "Left":
-                previous_button.invoke()
-            elif pressed_key == "Right":
-                next_button.invoke()
-
-        self.program_state.gui_state.main_window.bind("<KeyPress>", keypress_event)
+        self.program_state.gui_state.main_window.bind("<Control-Left>", lambda x: previous_button.invoke())
+        self.program_state.gui_state.main_window.bind("<Control-Right>", lambda x: next_button.invoke())
 
         self.box_excluded_checkbox.grid(row=0, column=0, sticky="W")
         self.box_line_break_checkbox.grid(row=1, column=0, sticky="W")

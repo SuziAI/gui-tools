@@ -19,13 +19,13 @@ from src.plugins.suzipu_lvlvpu_gongchepu.common import Symbol, SuzipuMelodySymbo
 
 EMPTY_ANNOTATION = None
 PLUGIN_NAME = "No Notation"
-DISPLAY_NOTATION = False
+DISPLAY_NOTATION = True
 
 
 RESOURCES = NotationResources()
 
 
-def notation_to_own(mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes, is_vertical):
+def notation_to_own(mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes=False, is_vertical=False):
     return notation_to_text(
                     RESOURCES.small_font,
                     RESOURCES.smallest_font,
@@ -33,7 +33,6 @@ def notation_to_own(mode, music_list, lyrics_list, line_break_idxs, fingering, r
                     line_break_idxs,
                     return_boxes,
                     is_vertical)
-
 
 
 class NotationAnnotationFrame:

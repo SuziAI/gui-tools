@@ -110,11 +110,11 @@ class SelectionFrame:
         frame2 = tk.Frame(left_frame)
 
         boxtype_buttons = []
-        for boxtype_var in dataclasses.astuple(BoxType()):
-            boxtype_buttons.append(tk.Radiobutton(frame2, text=boxtype_var, variable=self.boxtype_var,
+        for idx, boxtype_var in enumerate(dataclasses.astuple(BoxType())):
+            boxtype_buttons.append(tk.Radiobutton(frame2, text=f"{idx+1} {boxtype_var}", variable=self.boxtype_var,
                                                   value=boxtype_var, indicator=0, state="disabled",
                                                   bg=bgr_to_tkinter(box_property_to_color(boxtype_var)),
-                                                  command=self.on_change_box_type_selection))
+                                                  command=self.on_change_box_type_selection, underline=0))
 
         def _on_change_selection_mode():
             self.is_active = self.selectionmode_var.get() in [BoxManipulationAction.CREATE, BoxManipulationAction.MARK,
@@ -125,33 +125,34 @@ class SelectionFrame:
                 boxtype_button_element.config(state=state)
             self.on_change_mode_selection()
 
+        action_buttons = []
         for idx, selection_mode in enumerate(get_class_variables(BoxManipulationAction)):
             if selection_mode == BoxManipulationAction.ANNOTATE:
                 command = lambda: [self.on_click_annotate(), _on_change_selection_mode()]
             else:
                 command = _on_change_selection_mode
-            tk.Radiobutton(frame1, text=selection_mode, variable=self.selectionmode_var,
-                           value=selection_mode, indicator=0, command=command).grid(row=0, column=idx)
+            button = tk.Radiobutton(frame1, text=selection_mode, variable=self.selectionmode_var, value=selection_mode, indicator=0, command=command, underline=0)
+            button.grid(row=0, column=idx)
+            action_buttons.append(button)
 
-            def keypress_event(key):
-                pressed_key = key.keysym
-                if self.selectionmode_var.get() != BoxManipulationAction.ANNOTATE:  # don't change when in annotate mode, because the focus could be in a textbox!
-                    if pressed_key == "n":
-                        self.selectionmode_var.set(BoxManipulationAction.NO_ACTION)
-                    elif pressed_key == "c":
-                        self.selectionmode_var.set(BoxManipulationAction.CREATE)
-                    elif pressed_key == "m":
-                        self.selectionmode_var.set(BoxManipulationAction.MARK)
-                    elif pressed_key == "d":
-                        self.selectionmode_var.set(BoxManipulationAction.DELETE)
-                    elif pressed_key == "r":
-                        self.selectionmode_var.set(BoxManipulationAction.MOVE_RESIZE)
-                    elif pressed_key == "o":
-                        self.selectionmode_var.set(BoxManipulationAction.ORDER)
-                    elif pressed_key == "a":
-                        self.selectionmode_var.set(BoxManipulationAction.ANNOTATE)
-                    command()
-            self.program_state.gui_state.main_window.bind("<KeyRelease>", keypress_event)
+        self.program_state.gui_state.main_window.bind("<Control-n>", lambda x: action_buttons[0].invoke())
+        self.program_state.gui_state.main_window.bind("<Control-c>", lambda x: action_buttons[1].invoke())
+        self.program_state.gui_state.main_window.bind("<Control-m>", lambda x: action_buttons[2].invoke())
+        self.program_state.gui_state.main_window.bind("<Control-d>", lambda x: action_buttons[3].invoke())
+        self.program_state.gui_state.main_window.bind("<Control-r>", lambda x: action_buttons[4].invoke())
+        self.program_state.gui_state.main_window.bind("<Control-o>", lambda x: action_buttons[5].invoke())
+        self.program_state.gui_state.main_window.bind("<Control-a>", lambda x: action_buttons[6].invoke())
+
+        #for idx in range(8):
+        #    self.piece_properties.gui_state.main_window.bind(f"<Control-KeyPress-{idx+1}>", lambda x: boxtype_buttons[idx].invoke())
+        self.program_state.gui_state.main_window.bind(f"<Control-KeyPress-1>", lambda x: boxtype_buttons[0].invoke())
+        self.program_state.gui_state.main_window.bind(f"<Control-KeyPress-2>", lambda x: boxtype_buttons[1].invoke())
+        self.program_state.gui_state.main_window.bind(f"<Control-KeyPress-3>", lambda x: boxtype_buttons[2].invoke())
+        self.program_state.gui_state.main_window.bind(f"<Control-KeyPress-4>", lambda x: boxtype_buttons[3].invoke())
+        self.program_state.gui_state.main_window.bind(f"<Control-KeyPress-5>", lambda x: boxtype_buttons[4].invoke())
+        self.program_state.gui_state.main_window.bind(f"<Control-KeyPress-6>", lambda x: boxtype_buttons[5].invoke())
+        self.program_state.gui_state.main_window.bind(f"<Control-KeyPress-7>", lambda x: boxtype_buttons[6].invoke())
+        self.program_state.gui_state.main_window.bind(f"<Control-KeyPress-8>", lambda x: boxtype_buttons[7].invoke())
 
         for idx, boxtype_button in enumerate(boxtype_buttons):
             boxtype_button.grid(row=0, column=idx)
@@ -210,7 +211,7 @@ class SaveLoadFrame:
         tk.Button(self.frame, text="New", command=self.on_new).grid(row=0, column=0)
         tk.Button(self.frame, text="Open", command=self.on_load).grid(row=0, column=1)
         tk.Label(self.frame, text="").grid(row=0, column=2, padx=10)
-        tk.Button(self.frame, text="Save", command=self.on_save).grid(row=0, column=3)
+        tk.Button(self.frame, text="Save", command=self.on_save, underline=0).grid(row=0, column=3)
         tk.Label(self.frame, text="").grid(row=0, column=4, padx=10)
         tk.Button(self.frame, text="Export whole Image", command=self.on_save_image).grid(row=0, column=5)
         tk.Button(self.frame, text="Export as Text", command=self.on_save_text).grid(row=0, column=6)

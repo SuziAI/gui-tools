@@ -1,3 +1,4 @@
+import copy
 import dataclasses
 import json
 import os
@@ -9,7 +10,8 @@ import PIL
 from PIL import ImageTk, Image, ImageChops
 
 from src.auxiliary import BoxType
-from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import common_notation_to_jianpu, common_notation_to_staff
+from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import common_notation_to_jianpu, common_notation_to_staff, \
+    NotationResources, notation_to_custom
 from src.plugins.suzipu_lvlvpu_gongchepu.suzipu_intelligent_assistant import load_model, load_transforms, predict_all
 from src.programstate import ProgramState
 from src.config import CHINESE_FONT_FILE
@@ -17,9 +19,9 @@ from src.plugins.suzipu_lvlvpu_gongchepu.common import Symbol, SuzipuMelodySymbo
     _create_suzipu_images, ModeSelectorFrame, Lvlv, GongcheMelodySymbol
 
 
-EMPTY_ANNOTATION = {"pitch": None}
+EMPTY_ANNOTATION = {"type": "FULL_JIANZIPU", "content": {"content": ""}}
 PLUGIN_NAME = "Jianzipu (structure)"
-DISPLAY_NOTATION = False
+DISPLAY_NOTATION = True
 
 
 def open_images():
@@ -34,6 +36,10 @@ def open_images():
             images[name]["tk"] = ImageTk.PhotoImage(image=img)
     images[""] = images["placeholder"]
     return images
+
+
+RESOURCES = NotationResources()
+JIANZIPU_IMAGES = open_images()
 
 
 def combine_left_right(img1, img2):
@@ -121,25 +127,7 @@ def surround_upper_right(img1, img2):
     return new_im
 
 
-class FullJianzipuAnnotationFrame:
-    def __init__(self, window_handle, annotation_images, program_state, update_thumbnail, update_annotation, keys):
-        self.window_handle = window_handle
-        self.program_state = program_state
-        self.parent_node = None
-        self.musical_var = None
-        self.frame = tk.Frame(window_handle)
-        self.update_thumbnail = lambda: update_thumbnail(self.get_node_image(self.parent_node))
-        self.annotation_images = annotation_images
-        self.update_annotation = update_annotation
-
-        self.keys = keys
-
-        self.state = False
-
-        self._widgets = []
-        self.annotation_widgets = []
-
-        self.actions_list = [
+ACTION_LIST = [
             {"symbol": "⿰", "children": ["Left", "Right"], "combine": combine_left_right},
             {"symbol": "⿱", "children": ["Top", "Bottom"], "combine": combine_top_bottom},
             {"symbol": "⿲", "children": ["Left", "Middle", "Right"], "combine": combine_left_middle_right},
@@ -153,6 +141,81 @@ class FullJianzipuAnnotationFrame:
             # {"symbol": "⿴", "children": ["Outer", "Inner"]},
             # {"symbol": "⿻", "children": ["Topleft", "Bottomright"]}
         ]
+
+
+def notation_to_own(mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes=False, is_vertical=False):
+    def get_full_jianzipu_image(note):
+        children = []
+        try:
+            children = note["children"]
+        except KeyError:
+            pass
+
+        content = note["content"]
+        if len(children):  # child is no leaf node
+            for action in ACTION_LIST:
+                if action["symbol"] == content:
+                    break
+            return action["combine"](*[get_full_jianzipu_image(child) for child in children])
+        else:
+            return JIANZIPU_IMAGES[str(content)]["pil"]
+
+    def get_left_hand_image(note):
+        copy_note = copy.deepcopy(note)
+        if len(copy_note) <= 4:
+            for idx in range(4-len(copy_note)):
+                copy_note.append("none")
+            return combine_left_right(combine_top_bottom(JIANZIPU_IMAGES[str(copy_note[2])]["pil"], JIANZIPU_IMAGES[str(copy_note[3])]["pil"]), combine_top_bottom(JIANZIPU_IMAGES[str(copy_note[0])]["pil"], JIANZIPU_IMAGES[str(copy_note[1])]["pil"]))
+        else:
+            raise ValueError("Error: Left hand note may only contain up to four symbols.")
+
+    def get_string_number_image(note):
+        return JIANZIPU_IMAGES[str(note)]["pil"]
+
+    def get_image(note):
+        if "type" not in note:
+            note = EMPTY_ANNOTATION
+
+        if note["type"] == JianzipuSymbolType.FULL_JIANZIPU:
+            return get_full_jianzipu_image(note["content"])
+        elif note["type"] == JianzipuSymbolType.LEFT_HAND:
+            return get_left_hand_image(note["content"])
+        elif note["type"] == JianzipuSymbolType.STRING_NUMBER:
+            return get_string_number_image(note["content"])
+        else:
+            return get_full_jianzipu_image(EMPTY_ANNOTATION)
+
+    custom_notation_image_list = [get_image(note) for note in music_list]
+
+    return notation_to_custom(
+                    RESOURCES.small_font,
+                    custom_notation_image_list, lyrics_list,
+                    line_break_idxs,
+                    return_boxes,
+                    is_vertical)
+
+
+class FullJianzipuAnnotationFrame:
+    def __init__(self, window_handle, annotation_images, program_state, update_thumbnail, update_annotation, keys, started_from_notation_editor):
+        self.window_handle = window_handle
+        self.program_state = program_state
+        self.parent_node = None
+        self.musical_var = None
+        self.frame = tk.Frame(window_handle)
+        self.update_thumbnail = lambda: update_thumbnail(self.get_node_image(self.parent_node))
+        self.annotation_images = annotation_images
+        self.update_annotation = update_annotation
+
+        self.started_from_notation_editor = started_from_notation_editor
+
+        self.keys = keys
+
+        self.state = False
+
+        self._widgets = []
+        self.annotation_widgets = []
+
+        self.actions_list = ACTION_LIST
 
         self._create_frame()
 
@@ -205,10 +268,18 @@ class FullJianzipuAnnotationFrame:
             else:
                 annotation_buttons_frame.grid_forget()
 
+        def on_quick_fill():
+            exit_save_var, text_variable = exec_quick_fill_window(self.program_state.gui_state.tk_current_boxtype,
+                                                                  self.program_state.gui_state.tk_num_all_boxes_of_current_type)
+            if exit_save_var:
+                self.program_state.fill_all_boxes_of_current_type(json.loads(text_variable))
+
         display_node_annotation_checkbox = tk.Checkbutton(others_frame, text="Display Node Annotation", variable=display_node_annotation, command=show_or_hide_annotation_frame)
         clear_button = tk.Button(others_frame, text="Clear", command=self.clear_tree, state="disabled")
         clear_button.grid(row=0, column=0)
-        display_node_annotation_checkbox.grid(row=0, column=1)
+        quick_fill_button = tk.Button(others_frame, text="Quick Fill...", command=on_quick_fill, state="disabled")
+        quick_fill_button.grid(row=0, column=1)
+        display_node_annotation_checkbox.grid(row=0, column=2)
         others_frame.grid(row=2)
 
         outer_col = 0
@@ -230,7 +301,7 @@ class FullJianzipuAnnotationFrame:
             current_frame.grid(row=0, column=outer_col)
             outer_col += 1
 
-        self._widgets += [clear_button]
+        self._widgets += [clear_button, quick_fill_button]
 
     def get_frame(self):
         return self.frame
@@ -316,6 +387,8 @@ class FullJianzipuAnnotationFrame:
         self.update_thumbnail()
 
     def build_tree_from_dict(self, dictionary):
+        if "content" not in dictionary:
+            dictionary = EMPTY_ANNOTATION
         def build_node(node, subdict):
             action = self.get_action_from_symbol(subdict["content"])
             if action is not None:
@@ -327,13 +400,17 @@ class FullJianzipuAnnotationFrame:
                 self.musical_var.item(node, values=[str(subdict["content"])])
 
         build_node(self.parent_node, dictionary["content"])
-        self.update_annotation(self.get_full_dict())
+
+        if not self.started_from_notation_editor:
+            self.update_annotation(self.get_full_dict())
 
     def clear_tree(self, *args):
         self.musical_var.delete(*self.musical_var.get_children())
         self.parent_node = self.musical_var.insert("", tk.END, text="⬚", values=[""])
         self.update_thumbnail()
-        self.update_annotation(self.get_full_dict())
+
+        if not self.started_from_notation_editor:
+            self.update_annotation(self.get_full_dict())
 
     def set_from_annotation(self, annotation):
         self.clear_tree()
@@ -398,7 +475,7 @@ class StringNumberAnnotationFrame:
 
 
 class LeftHandAnnotationFrame:
-    def __init__(self, window_handle, annotation_images, program_state, update_thumbnail, update_annotation, keys):
+    def __init__(self, window_handle, annotation_images, program_state, update_thumbnail, update_annotation, keys, started_from_notation_editor):
         self.window_handle = window_handle
         self.program_state = program_state
         self.parent_node = None
@@ -407,6 +484,7 @@ class LeftHandAnnotationFrame:
         self.update_thumbnail = lambda: update_thumbnail(self.get_image())
         self.annotation_images = annotation_images
         self.update_annotation = update_annotation
+        self.started_from_notation_editor = started_from_notation_editor
 
         self.keys = keys
 
@@ -483,7 +561,9 @@ class LeftHandAnnotationFrame:
     def clear_tree(self, *args):
         self.musical_var.delete(*self.musical_var.get_children())
         self.update_thumbnail()
-        self.update_annotation(self.get_full_dict())
+
+        if not self.started_from_notation_editor:
+            self.update_annotation(self.get_full_dict())
 
     def set_from_annotation(self, annotation):
         self.clear_tree()
@@ -491,7 +571,8 @@ class LeftHandAnnotationFrame:
             for item in annotation["content"]:
                 try:
                     self.musical_var.insert("", "end", image=self.annotation_images[item]["tk"], text=item)
-                    self.update_annotation(self.get_full_dict())
+                    if not self.started_from_notation_editor:
+                        self.update_annotation(self.get_full_dict())
                 except KeyError:
                     pass
 
@@ -513,12 +594,44 @@ class JianzipuSymbolType:
     LEFT_HAND: str = "LEFT_HAND"
 
 
+def exec_quick_fill_window(annotation_type_var, max_length_var):
+    quick_fill_window = tk.Toplevel()
+
+    exit_save_var = tk.BooleanVar()
+    exit_save_var.set(False)
+    def on_destroy_save_changes():
+        exit_save_var.set(True)
+        quick_fill_window.destroy()
+
+    annotation_type = annotation_type_var.get()
+
+    quick_fill_window.title(f"Quick Fill {annotation_type}")
+
+    text_variable = tk.StringVar(quick_fill_window)
+    text_variable.set("")
+
+    left_character_string = tk.StringVar(quick_fill_window)
+    left_character_string.set("")
+    ok_button = tk.Button(quick_fill_window, text="OK", command=on_destroy_save_changes, state="normal")
+
+    tk.Entry(quick_fill_window, font=CHINESE_FONT_FILE,
+             textvariable=text_variable).pack()
+    tk.Label(quick_fill_window, textvariable=left_character_string).pack()
+    ok_button.pack()
+
+    quick_fill_window.wait_window()
+
+    return exit_save_var.get(), text_variable.get()
+
+
 class NotationAnnotationFrame:
-    def __init__(self, window_handle, program_state, simple=False):
+    def __init__(self, window_handle, program_state, simple=False, started_from_notation_editor=False):
         self.window_handle = window_handle
         self.program_state = program_state
         self.display_image = None
         self.simple = simple
+
+        self.started_from_notation_editor = started_from_notation_editor
 
         self.frame = tk.Frame(self.window_handle)
 
@@ -530,7 +643,7 @@ class NotationAnnotationFrame:
         self.selection_variable = tk.StringVar(self.frame, "Full")
         self._widgets = []
         self.current_img = None
-        self.annotation_images = open_images()
+        self.annotation_images = JIANZIPU_IMAGES
         self.annotation_widgets = []
 
         self._create_frame()
@@ -554,9 +667,9 @@ class NotationAnnotationFrame:
         display_frame = tk.Frame(notation_subframe)
         self.display_image = tk.Label(display_frame, image=self.annotation_images["none"]["tk"], relief="sunken", state="disabled")
         self.display_image.pack(side="left", padx=10)
-        self.full_jianzipu_frame = FullJianzipuAnnotationFrame(display_frame, self.annotation_images, self.program_state, self.update_thumbnail, self.update_annotation, self.config["FullJianzipuAnnotation"])
+        self.full_jianzipu_frame = FullJianzipuAnnotationFrame(display_frame, self.annotation_images, self.program_state, self.update_thumbnail, self.update_annotation, self.config["FullJianzipuAnnotation"], started_from_notation_editor=self.started_from_notation_editor)
         self.string_number_annotation_frame = StringNumberAnnotationFrame(display_frame, self.annotation_images, self.program_state, self.update_thumbnail, self.update_annotation, self.config["StringNumberAnnotation"])
-        self.left_hand_annotation_frame = LeftHandAnnotationFrame(display_frame, self.annotation_images, self.program_state, self.update_thumbnail, self.update_annotation, self.config["LeftHandAnnotation"])
+        self.left_hand_annotation_frame = LeftHandAnnotationFrame(display_frame, self.annotation_images, self.program_state, self.update_thumbnail, self.update_annotation, self.config["LeftHandAnnotation"], started_from_notation_editor=self.started_from_notation_editor)
 
         self.current_frame = self.full_jianzipu_frame
         self.current_frame.get_frame().pack(side="right", padx=10)
@@ -594,7 +707,7 @@ class NotationAnnotationFrame:
 
         try:
             self._change_frame(annotation["type"])
-        except Exception:
+        except (KeyError, TypeError) as e:
             self._change_frame("FULL_JIANZIPU")
 
         self.current_frame.set_from_annotation(annotation)

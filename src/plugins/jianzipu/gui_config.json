@@ -1,0 +1,191 @@
+{
+  "LeftHandAnnotation": {
+    "Numbers": [
+      "1",
+      "2",
+      "3",
+      "4",
+      null,
+      "5",
+      "6",
+      "7",
+      "8",
+      null,
+      "9",
+      "10",
+      "LEFT_WAI"
+    ],
+    "LH Fingers": [
+      "LEFT_FINGER_DA",
+      "LEFT_FINGER_SHI",
+      "LEFT_FINGER_ZHONG",
+      "LEFT_FINGER_WU",
+      null,
+      "LEFT_FINGER_GUI"
+    ],
+    "LH Slides": [
+      "LEFT_ZHU",
+      "LEFT_SHANG",
+      "LEFT_YIN_SHANG",
+      "LEFT_YIN_SHANG_2",
+      null,
+      "LEFT_CHUO",
+      "LEFT_XIA",
+      "LEFT_TONG_XIA",
+      "LEFT_TONG_XIA_2",
+      null,
+      "LEFT_YIN_XIA",
+      "LEFT_TUI",
+      "LEFT_TUI_FU",
+      null,
+      "LEFT_JIN",
+      "LEFT_JIN_FU",
+      "LEFT_ZHUANG",
+      "LEFT_DOU"
+    ],
+    "LH Yin / Nao": [
+      "LEFT_YIN",
+      "LEFT_CHANG_YIN",
+      "LEFT_DING_YIN",
+      "LEFT_YOU_YIN",
+      null,
+      "LEFT_NAO",
+      "LEFT_CHANG_NAO",
+      "LEFT_JI_NAO"
+    ],
+    "LH Misc": [
+      "LEFT_QIA_QI",
+      "LEFT_DUI_QI",
+      "LEFT_DUI_GUO",
+      "LEFT_DUI_AN",
+      null,
+      "LEFT_ZHUA_QI",
+      "LEFT_DAI_QI",
+      "LEFT_DAI_QI_2",
+      null,
+      "LEFT_YAN",
+      "LEFT_YAN_2",
+      "LEFT_XU_YAN",
+      null,
+      "LEFT_TUI_CHU",
+      "LEFT_TUI_CHU_2",
+      "LEFT_BU_DONG",
+      "LEFT_BU_DONG_2"
+    ]
+  },
+  "FullJianzipuAnnotation": {
+    "Other Symbols":[
+        "O_CONGTOUZAIZUO",
+        "O_QUZHONG"
+      ],
+    "Technique": [
+      "TECHNIQUE_SAN_YIN",
+      "TECHNIQUE_FAN_YIN",
+      "TECHNIQUE_AN_YIN",
+      null,
+      "TECHNIQUE_FAN_QI",
+      "TECHNIQUE_FAN_ZHI"
+    ],
+    "Numbers": [
+      "1",
+      "2",
+      "3",
+      "4",
+      null,
+      "5",
+      "6",
+      "7",
+      "8",
+      null,
+      "9",
+      "10",
+      "LEFT_WAI"
+    ],
+    "LH Fingers": [
+      "LEFT_FINGER_DA",
+      "LEFT_FINGER_SHI",
+      "LEFT_FINGER_ZHONG",
+      "LEFT_FINGER_WU",
+      null,
+      "LEFT_FINGER_GUI"
+    ],
+    "LH Slides": [
+      "LEFT_ZHU",
+      "LEFT_SHANG",
+      "LEFT_YIN_SHANG",
+      "LEFT_YIN_SHANG_2",
+      null,
+      "LEFT_CHUO",
+      "LEFT_XIA",
+      "LEFT_TONG_XIA",
+      "LEFT_TONG_XIA_2",
+      null,
+      "LEFT_YIN_XIA",
+      "LEFT_TUI",
+      "LEFT_TUI_FU",
+      null,
+      "LEFT_JIN",
+      "LEFT_JIN_FU",
+      "LEFT_ZHUANG",
+      "LEFT_DOU"
+    ],
+    "LH Yin / Nao": [
+      "LEFT_YIN",
+      "LEFT_CHANG_YIN",
+      "LEFT_DING_YIN",
+      "LEFT_YOU_YIN",
+      null,
+      "LEFT_NAO",
+      "LEFT_CHANG_NAO",
+      "LEFT_JI_NAO"
+    ],
+    "LH Misc": [
+      "LEFT_QIA_QI",
+      "LEFT_DUI_QI",
+      "LEFT_DUI_GUO",
+      "LEFT_DUI_AN",
+      null,
+      "LEFT_ZHUA_QI",
+      "LEFT_DAI_QI",
+      "LEFT_DAI_QI_2",
+      null,
+      "LEFT_YAN",
+      "LEFT_YAN_2",
+      "LEFT_XU_YAN",
+      null,
+      "LEFT_TUI_CHU",
+      "LEFT_TUI_CHU_2",
+      "LEFT_BU_DONG",
+      "LEFT_BU_DONG_2"
+    ],
+    "RH Plucks": [
+      "RIGHT_BO",
+      "RIGHT_MO",
+      "RIGHT_GOU",
+      "RIGHT_DA",
+      null,
+      "RIGHT_TUO",
+      "RIGHT_TIAO",
+      "RIGHT_TI",
+      "RIGHT_ZHAI",
+      null,
+      "RIGHT_LI",
+      "RIGHT_JUAN",
+      "RIGHT_JUAN_2"
+    ],
+    "RH Misc": [
+      "RIGHT_CUO"
+    ]
+  },
+  "StringNumberAnnotation": {
+    "String Number": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7"
+    ]
+  }
+}

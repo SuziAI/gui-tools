@@ -11,3 +11,14 @@ corpus
 ignore/*
 output_results
 omr_dataset
+.ipynb_checkpoints
+*.ipynb
+notation_editor.py
+src/notation_editor_auxiliary.py
+*.json
+KuiSCIMA
+OUTPUT
+DEMO
+modify_corpus.py
+*.std
+*.pkl

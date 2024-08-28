@@ -36,8 +36,9 @@ provided by default. See also: [Ubuntu install](https://www.pythonguis.com/insta
    [See the links provided in HRCenterNet's README](https://github.com/Tverous/HRCenterNet#download-the-dataset-and-the-pretrained-weight).
 4. Furthermore, the downloaded weight file `HRCenterNet.pth.tar` must be moved to the folder `weights` in the repository's
    root folder.
-5. For using the text-based `Intelligent Fill...` function, the `chi_tra.traineddata` for `tesseract` must be installed.
-   Use Wang Dingyun's trained model from [this site](https://github.com/gumblex/tessdata_chi/releases/tag/v20220621).
+5. For using the text-based `Intelligent Fill...` function, the file `chi_tra.traineddata` for `tesseract` must be
+   present in the folder `weights` in the repository's root folder. For best results, use Wang Dingyun's trained model
+   from [this site](https://github.com/gumblex/tessdata_chi/releases/tag/v20220621).
 
 
 For starting the annotation tool, follow these steps:

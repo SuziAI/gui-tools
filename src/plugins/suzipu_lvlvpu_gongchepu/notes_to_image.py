@@ -6,10 +6,12 @@ import music21
 import argparse
 import json
 
-from src.auxiliary import _create_suzipu_images
-from src.modes import GongdiaoModeList
+from music21 import articulations
+
+from src.fingering import FingeringProperties, Fingering, fingering_to_lowest_note
+from src.plugins.suzipu_lvlvpu_gongchepu.common import GongcheMelodySymbol, GongdiaoModeList, SuzipuAdditionalSymbol, \
+    suzipu_to_info
 from src.config import JIANPU_IMAGE_PATH, FIVELINE_IMAGE_PATH, CHINESE_FONT_FILE, SUZIPU_NOTATION_IMAGE_PATH
-from src.suzipu import suzipu_to_info, SuzipuAdditionalSymbol, GongcheMelodySymbol
 
 accidental_dictionary = {
             "None": None,
@@ -40,7 +42,7 @@ def load_jianpu_image_dict():
     return image_dict
 
 
-def load_western_image_dict():
+def load_staff_image_dict():
     image_dict = {}
     for image_path in os.listdir(FIVELINE_IMAGE_PATH):
         image_dict[os.path.basename(image_path).split(".")[0]] = Image.open(f"{FIVELINE_IMAGE_PATH}/{image_path}").convert("RGB")
@@ -51,6 +53,7 @@ def load_suzipu_image_dict():
     image_dict = {}
     for image_path in os.listdir(SUZIPU_NOTATION_IMAGE_PATH):
         image_dict[os.path.basename(image_path).split(".")[0]] = Image.open(f"{SUZIPU_NOTATION_IMAGE_PATH}/{image_path}").convert("RGB")
+    image_dict[None] = image_dict["none"]
     return image_dict
 
 
@@ -69,14 +72,14 @@ class NotationResources:
         self.title_font = load_font(70)
 
         self.jianpu_image_dict = load_jianpu_image_dict()
-        self.western_image_dict = load_western_image_dict()
+        self.staff_image_dict = load_staff_image_dict()
         self.suzipu_image_dict = load_suzipu_image_dict()
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="WriteSuzipuListToFile")
     parser.add_argument("--music_list", required=True,
-                        help="JSON string containing the Suzipu information.")
+                        help="JSON string containing the notational information.")
     parser.add_argument("--lyrics_list", required=True,
                         help="JSON string containing the lyrics information.")
     parser.add_argument("--output_file_path", default="temp.png", required=False,
@@ -90,41 +93,6 @@ def parse_arguments():
     parser.add_argument("--preface", default="", required=False,
                         help="Piece preface.")
     return parser.parse_args()
-
-
-class FingeringProperties:
-    def __init__(self, name, chinese_name, transposition_index, image_data):
-        self.name = name
-        self.chinese_name = chinese_name
-        self.transposition_index = transposition_index
-        self.image_data = image_data
-
-
-@dataclasses.dataclass
-class Fingering:
-    ALL_CLOSED_AS_1: FingeringProperties = FingeringProperties(name="Lowest = •1", chinese_name="筒音作 •1", transposition_index="-P8", image_data=("1", "low", None))
-    ALL_CLOSED_AS_2: FingeringProperties = FingeringProperties(name="Lowest = •2", chinese_name="筒音作 •2", transposition_index="-m7", image_data=("2", "low", None))
-    ALL_CLOSED_AS_3: FingeringProperties = FingeringProperties(name="Lowest = •3", chinese_name="筒音作 •3", transposition_index="-m6", image_data=("3", "low", None))
-    ALL_CLOSED_AS_4: FingeringProperties = FingeringProperties(name="Lowest = •4", chinese_name="筒音作 •4", transposition_index="-P5", image_data=("4", "low", None))
-    ALL_CLOSED_AS_5: FingeringProperties = FingeringProperties(name="Lowest = •5", chinese_name="筒音作 •5", transposition_index="-P4", image_data=("5", "low", None))
-    ALL_CLOSED_AS_6: FingeringProperties = FingeringProperties(name="Lowest = •6", chinese_name="筒音作 •6", transposition_index="-m3", image_data=("6", "low", None))
-    ALL_CLOSED_AS_FLAT_7: FingeringProperties = FingeringProperties(name="Lowest = •♭7", chinese_name="筒音作 •♭7", transposition_index="-M2", image_data=("7", "low", "flat"))
-
-    @classmethod
-    def from_string(cls, string):
-        for fingering in dataclasses.astuple(cls()):
-            if string == fingering.name or string == fingering.chinese_name:
-                return fingering
-        fingering = Fingering.ALL_CLOSED_AS_1
-        print(f"Could not detect fingering from name '{string}'. Returned {fingering.name} instead.")
-        return fingering
-
-
-def fingering_to_lowest_note(fingering: FingeringProperties):
-    transposition = fingering.transposition_index
-    base_note = music21.note.Note("C4")
-    base_note = base_note.transpose(transposition)
-    return base_note
 
 
 def horizontal_composition(image_list: list):
@@ -173,12 +141,23 @@ def apply_border_to_boxes(boxes, border_width, border_heigth):
     return new_boxes
 
 
-def construct_note_stream(suzipu_list, lyrics_list, line_break_idxs):
+def construct_note_stream(notation_list, lyrics_list, line_break_idxs):
     stream = music21.stream.Stream()
 
     current_measure = music21.stream.Measure()
-    for box_idx, str in enumerate(suzipu_list):
-        if not len(str):  # Case 1: no suzipu notation in the box
+    for box_idx, notation in enumerate(notation_list):
+
+        try:
+            pitch = notation["pitch"]
+        except (KeyError, TypeError):
+            pitch = None
+
+        try:
+            secondary = notation["secondary"]
+        except (KeyError, TypeError):
+            secondary = None
+
+        if not pitch:
             note = music21.note.Rest()
             note.lyric = lyrics_list[box_idx]
 
@@ -191,48 +170,23 @@ def construct_note_stream(suzipu_list, lyrics_list, line_break_idxs):
 
             current_measure.append([note])
         else:
-            char1 = str[0]
-            char2 = None
-            try:
-                char2 = str[1]
-            except IndexError:
-                pass
+            original_pitch = pitch
+            pitch = suzipu_to_info(pitch).basic_pitch
 
-            pitch1 = suzipu_to_info(char1).basic_pitch if char1 else None
-            pitch2 = suzipu_to_info(char2).basic_pitch if char2 else None
+            note = music21.note.Note(pitch, type="16th")
+            note.lyric = lyrics_list[box_idx]
 
-            original_pitch_char = char1 if char1 else char2
+            note.line_break = False
+            if box_idx in line_break_idxs:
+                note.line_break = True
 
-            if pitch1 and pitch2:  # Case 2a: Two pitches in the pair-character notation
-                note1 = music21.note.Note(pitch1, type="32nd")
-                note1.lyric = lyrics_list[box_idx]
-                note2 = music21.note.Note(pitch2, type="32nd")
+            note.additional_symbol = secondary
+            note.original_pitch = original_pitch
 
-                note1.additional_symbol = None
-                note2.additional_symbol = None
-                note1.original_pitch = original_pitch_char
+            if "is_zhezi" in notation and notation["is_zhezi"]:
+                note.additional_symbol = SuzipuAdditionalSymbol.ADD_ZHE  # Zhezi for lülüpu
 
-                note1.line_break = False
-                note2.line_break = False
-                if box_idx in line_break_idxs:
-                    note2.line_break = True
-
-                current_measure.append([note1, note2])
-
-            else:  # Case 2b: One pitch in the pair-character notation
-                pitch = pitch1 if pitch1 else pitch2
-
-                note = music21.note.Note(pitch, type="16th")
-                note.lyric = lyrics_list[box_idx]
-
-                note.line_break = False
-                if box_idx in line_break_idxs:
-                    note.line_break = True
-
-                note.additional_symbol = char1 if char1 in dataclasses.astuple(SuzipuAdditionalSymbol()) else char2
-                note.original_pitch = original_pitch_char
-
-                current_measure.append([note])
+            current_measure.append([note])
     stream.append(current_measure)
 
     return stream
@@ -242,8 +196,8 @@ def construct_note_stream_musicxml(suzipu_list, lyrics_list):
     stream = music21.stream.Stream()
 
     current_measure = music21.stream.Measure()
-    for box_idx, string in enumerate(suzipu_list):
-        if not len(string):  # Case 1: no suzipu notation in the box
+    for box_idx, notation in enumerate(suzipu_list):
+        if notation["pitch"] is None or notation["pitch"] == "None":  # Case 1: no suzipu notation in the box
             note = music21.note.Rest(length="quarter")
             note.lyric = lyrics_list[box_idx]
 
@@ -257,12 +211,12 @@ def construct_note_stream_musicxml(suzipu_list, lyrics_list):
             else:
                 current_measure.append([note])
         else:
-            char1 = string[0]
-            char2 = None
+            char1 = notation["pitch"]
+
             try:
-                char2 = string[1]
-            except IndexError:
-                pass
+                char2 = notation["secondary"]
+            except KeyError:
+                char2 = None
 
             pitch1 = suzipu_to_info(char1).basic_pitch if char1 else None
             pitch2 = suzipu_to_info(char2).basic_pitch if char2 else None
@@ -271,6 +225,8 @@ def construct_note_stream_musicxml(suzipu_list, lyrics_list):
                 pitch = pitch1 if pitch1 else pitch2
                 note = music21.note.Note(pitch, type="quarter")
                 note.lyric = lyrics_list[box_idx]
+                if "is_zhezi" in notation and notation["is_zhezi"]:
+                    note.articulations.append(articulations.Tenuto())  # Zhezi signified by Tenuto mark for lülüpu
                 current_measure.append(note)
 
             elif pitch1 and pitch2:  # Case 2b: Two pitches in the pair-character notation
@@ -352,6 +308,20 @@ def determine_image_width(stream):
     return max_counter
 
 
+def determine_image_width_manual(lyric_list, line_break_idxs):
+    max_counter = -1
+
+    counter = 0
+    for idx, note in enumerate(lyric_list):
+        if idx in line_break_idxs or idx == len(lyric_list)-1:
+            max_counter = max(counter+1, max_counter)
+            counter = 0
+        else:
+            counter += 1
+
+    return max_counter
+
+
 def parse_notation_and_write_to_file(suzipu_list, lyrics_list, output_file_path_str: str):
     stream = music21.stream.Stream()
 
@@ -392,10 +362,16 @@ def parse_notation_and_write_to_file(suzipu_list, lyrics_list, output_file_path_
     stream.write("lily.png", fp=output_file_path_str)
 
 
-def notation_to_jianpu(font, image_dict, music_list, lyrics_list, line_break_idxs=[], fingering=Fingering.ALL_CLOSED_AS_1, return_boxes=False):
+def common_notation_to_jianpu(font, image_dict, mode, music_list, lyrics_list, line_break_idxs=[], fingering=Fingering.ALL_CLOSED_AS_1, return_boxes=False):
     pitch_past = []
 
     width = 65
+
+    if mode:
+        try:
+            music_list = mode.convert_pitches_in_list(music_list)
+        except TypeError:  # This happens when the chosen mode dows not match the piece
+            return None
 
     def note_to_suzipu(font, note, image_dict):
         pitch_dictionary = {
@@ -495,11 +471,17 @@ def notation_to_jianpu(font, image_dict, music_list, lyrics_list, line_break_idx
     return whole_image
 
 
-def notation_to_western(font, image_dict, music_list, lyrics_list, line_break_idxs=[], fingering=Fingering.ALL_CLOSED_AS_1, return_boxes=False):
+def common_notation_to_staff(font, image_dict, mode, music_list, lyrics_list, line_break_idxs=[], fingering=Fingering.ALL_CLOSED_AS_1, return_boxes=False):
     pitch_past = []
     width = 65
 
-    def note_to_western(font, note, image_dict):
+    if mode:
+        try:
+            music_list = mode.convert_pitches_in_list(music_list)
+        except TypeError:  # This happens when the chosen mode dows not match the piece
+            return None
+
+    def note_to_staff(font, note, image_dict):
         def note_to_offset_and_staff_type(note):
             def throw_error():
                 raise IndexError(f"Out of range. The note to be displayed {note} is not between A3 and C6")
@@ -584,7 +566,7 @@ def notation_to_western(font, image_dict, music_list, lyrics_list, line_break_id
         for measure in stream:
             idx = 0
             for note in measure:
-                current_img = note_to_western(font, note, image_dict)
+                current_img = note_to_staff(font, note, image_dict)
                 whole_image.paste(current_img, (width * (idx + 1), current_row_counter * (width + 120 + width + width)))
                 boxes.append(((width * (idx + 1), current_row_counter * (width + 120 + width + width)), (width * (idx + 2), (current_row_counter + 1) * (width + 120 + width + width) - width)))
                 if note.line_break:
@@ -629,9 +611,18 @@ def _notation_to_textbased(font, notation_font, music_list, lyrics_list, note_to
         text_draw = ImageDraw.Draw(whole_img)
 
         if note.isRest:
-            pass
+            if lyric is not None:
+                if is_vertical:
+                    text_draw.text((15, 0), lyric, fill=(0, 0, 0), font=font)
+                else:
+                    text_draw.text((10, width), lyric, fill=(0, 0, 0), font=font)
         else:
             notation = note_to_textbased_function(note.original_pitch)
+            if note.additional_symbol == SuzipuAdditionalSymbol.ADD_ZHE:  # lvlvpu ZHE_ZI
+                notation = "字折"
+
+            if not is_vertical and len(notation) > 1:
+                notation = notation[::-1]
 
             if is_vertical:
                 if len(notation) == 1:
@@ -696,12 +687,92 @@ def _notation_to_textbased(font, notation_font, music_list, lyrics_list, note_to
     return notation_image
 
 
+def notation_to_custom(font, custom_notation_image_list, lyrics_list, line_break_idxs=[], return_boxes=False, is_vertical=False):
+    width = 65
+
+    def switch_coordinates(box):
+        if is_vertical:
+            return box[1], box[0]
+        return box[0], box[1]
+
+    def note_to_whole_image(font, note_img, lyric):
+        whole_img = Image.new('RGB', switch_coordinates((width, 2 * width)), (255, 255, 255))
+
+        text_draw = ImageDraw.Draw(whole_img)
+
+        if note_img is None:
+            if lyric is not None:
+                if is_vertical:
+                    text_draw.text((15, 0), lyric, fill=(0, 0, 0), font=font)
+                else:
+                    text_draw.text((10, width), lyric, fill=(0, 0, 0), font=font)
+        else:
+            if is_vertical:
+                whole_img.paste(note_img, (85, 15))
+                if lyric is not None:
+                    text_draw.text((15, 0), lyric, fill=(0, 0, 0), font=font)
+            else:
+                whole_img.paste(note_img, (17, 30))
+                if lyric is not None:
+                    text_draw.text((10, width), lyric, fill=(0, 0, 0), font=font)
+
+        return whole_img
+
+    def construct_notation_image(custom_notation_image_list, lyrics_list, line_break_idxs) -> tuple:
+        image_width = determine_image_width_manual(lyrics_list, line_break_idxs)
+        image_height = len(line_break_idxs) + 1
+
+        current_row_counter = 0
+
+        boxes = []
+
+        if image_width * image_height <= 0:
+            return Image.new('RGB', switch_coordinates((width, width * 3)), (255, 255, 255)), boxes
+
+        whole_image_width = width * image_width
+        whole_image_height = image_height * width * 3
+        whole_image = Image.new('RGB', switch_coordinates((whole_image_width, whole_image_height)), (255, 255, 255))
+
+        idx = 0
+        for box_idx, (note, lyric) in enumerate(zip(custom_notation_image_list, lyrics_list)):
+            if is_vertical:
+                current_img = note_to_whole_image(font, note, lyric)
+                whole_image.paste(current_img, switch_coordinates((width * idx, whole_image_height - 3*width - current_row_counter * width * 3)))
+                boxes.append((switch_coordinates((width * idx, whole_image_height - 3*width - current_row_counter * width * 3)),
+                              switch_coordinates((width + width * idx, whole_image_height - 3*width - current_row_counter * width * 3 + 2 * width))))
+            else:
+                current_img = note_to_whole_image(font, note, lyric)
+                whole_image.paste(current_img, switch_coordinates((width * idx, current_row_counter * width * 3)))
+                boxes.append((switch_coordinates((width * idx, current_row_counter * width * 3)),
+                              switch_coordinates((width + width * idx, current_row_counter * width * 3 + 2 * width))))
+            if box_idx in line_break_idxs:
+                current_row_counter += 1
+                idx = 0
+            else:
+                idx += 1
+        return whole_image, boxes
+
+    try:
+        notation_image, boxes = construct_notation_image(custom_notation_image_list, lyrics_list, line_break_idxs)
+    except Exception as e:
+        print("EX", e)
+        return None
+
+    if return_boxes:
+        return notation_image, boxes
+    return notation_image
+
+
 def notation_to_gongchepu(font, gongche_font, music_list, lyrics_list, line_break_idxs=[], return_boxes=False, is_vertical=False):
     return _notation_to_textbased(font, gongche_font, music_list, lyrics_list, GongcheMelodySymbol.to_gongche, line_break_idxs, return_boxes, is_vertical)
 
 
 def notation_to_lvlvpu(font, lvlv_font, music_list, lyrics_list, line_break_idxs=[], return_boxes=False, is_vertical=False):
     return _notation_to_textbased(font, lvlv_font, music_list, lyrics_list, GongcheMelodySymbol.to_lvlv, line_break_idxs, return_boxes, is_vertical)
+
+
+def notation_to_text(font, lvlv_font, lyrics_list, line_break_idxs=[], return_boxes=False, is_vertical=False):
+    return _notation_to_textbased(font, lvlv_font, [{"pitch": None, "secondary": None} for l in lyrics_list], lyrics_list, GongcheMelodySymbol.to_lvlv, line_break_idxs, return_boxes, is_vertical)
 
 
 def notation_to_suzipu(font, image_dict, music_list, lyrics_list, line_break_idxs=[], return_boxes=False, is_vertical=False):
@@ -813,15 +884,17 @@ def write_to_musicxml(file_path, suzipu_list, lyrics_list, fingering=Fingering.A
     if fingering_to_lowest_note(fingering) < music21.note.Note("Ab3"):
         stream = stream.transpose("P8")  # transpose too deep into normal range
 
+    #for note in stream.flat.notes:
+    #    print(note)
+
     stream.insert(0, music21.metadata.Metadata())
     stream.metadata["title"] = [title, mode, preface]
 
     stream.write("musicxml", fp=file_path)
-
     return None
 
 
-def construct_metadata_image(title_font, text_font, title, mode, preface, image_width=None, is_vertical=False, composer=None):
+def construct_metadata_image(title_font, text_font, title, mode, preface, image_width=None, is_vertical=False, composer=""):
     def adjust_to_vertical(string: str):
         string = string.replace("，", "︐")
         string = string.replace(",", "︐")
@@ -981,8 +1054,8 @@ if __name__ == "__main__":
     suzipu_list = MODE.convert_pitches_in_list(suzipu_list)
 
 
-    #notation_img = notation_to_jianpu(small_font, load_jianpu_image_dict(), music_list, lyrics_list, line_break_idxs, Fingering.ALL_CLOSED_AS_6)
-    notation_img = notation_to_western(small_font, load_western_image_dict(), suzipu_list, lyrics_list, line_break_idxs, Fingering.ALL_CLOSED_AS_6)
+    #notation_img = common_notation_to_jianpu(small_font, load_jianpu_image_dict(), MODE, music_list, lyrics_list, line_break_idxs, Fingering.ALL_CLOSED_AS_6)
+    notation_img = common_notation_to_staff(small_font, load_staff_image_dict(), MODE, suzipu_list, lyrics_list, line_break_idxs, Fingering.ALL_CLOSED_AS_6)
     metadata_img = construct_metadata_image(big_font, small_font, title, mode, preface, image_width=notation_img.width)
 
     combined_img = vertical_composition([metadata_img, notation_img])

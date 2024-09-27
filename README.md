@@ -13,7 +13,7 @@ provided by default. See also: [Ubuntu install](https://www.pythonguis.com/insta
 ## How to Cite
 
 Please cite the software using the paper
-[The Suzipu Musical Annotation Tool for the Creation of Machine-Readable Datasets of Ancient Chinese Music](https://link-to-paper.example.com](https://repositum.tuwien.at/bitstream/20.500.12708/190035/1/Calvo-Zaragoza-2023-Proceedings%20of%20the%205th%20International%20Workshop%20on%20Read...-vor.pdf)
+[The Suzipu Musical Annotation Tool for the Creation of Machine-Readable Datasets of Ancient Chinese Music](https://repositum.tuwien.at/bitstream/20.500.12708/190035/1/Calvo-Zaragoza-2023-Proceedings%20of%20the%205th%20International%20Workshop%20on%20Read...-vor.pdf)
 where the annotation tool was presented the first time:
 
 ```

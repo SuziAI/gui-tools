@@ -207,6 +207,12 @@ def cv_to_tkinter_image(cv_image):
     merge_img = Image.fromarray(merge_img)
     return ImageTk.PhotoImage(image=merge_img)
 
+def onedim_cv_to_tkinter_image(cv_image):
+    channel = cv_image
+    merge_img = cv2.merge((channel, channel, channel)).astype(np.uint8)
+    merge_img = Image.fromarray(merge_img)
+    return ImageTk.PhotoImage(image=merge_img)
+
 
 def get_image_from_box_ai_assistant(current_image, box):
     (x1, y1), (x2, y2) = box
@@ -342,6 +348,10 @@ class BoxesWithType(JsonSerializable):
 
     def delete_index(self, idx):
         del self.boxes_list[idx]
+
+    def delete_multiple_indices(self, idxs):
+        for idx in sorted(idxs, reverse=True):
+            del self.boxes_list[idx]
 
     def reorder(self, new_order):
         if len(new_order) == len(self):

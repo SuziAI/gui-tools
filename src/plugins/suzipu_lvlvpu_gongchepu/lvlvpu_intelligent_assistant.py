@@ -14,6 +14,7 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 from src.auxiliary import cv_to_tkinter_image
+from src.plugins.lvlvpu_type import ExtendedLvlv
 
 
 class FashionCNN(nn.Module):
@@ -34,7 +35,7 @@ class FashionCNN(nn.Module):
             nn.MaxPool2d(2)
         )
 
-        self.fc1 = nn.Linear(in_features=64 * 6 * 6, out_features=600)
+        self.fc1 = nn.Linear(in_features=6400, out_features=600)
         self.drop = nn.Dropout2d(0.25)
         self.fc2 = nn.Linear(in_features=600, out_features=120)
         self.fc3 = nn.Linear(in_features=120, out_features=num_output_classes)
@@ -137,10 +138,10 @@ def crop_excess_whitespace(image):
 
 
 def load_transforms():
-    def shrink(is_random=False, target_size=20):
+    def shrink(is_random=True, target_size=40):
         def inner(input_image):
 
-            t_size = random.randint(15, 22) if is_random else target_size
+            t_size = random.randint(37, 43) if is_random else target_size
 
             original_width = input_image.shape[-1]
             original_height = input_image.shape[-2]
@@ -160,7 +161,7 @@ def load_transforms():
 
         return inner
 
-    def paste_to_square(is_random=False, target_size=28):
+    def paste_to_square(is_random=True, target_size=45):
         def inner(input_image):
             ## Modify the function to extend the
             ## input image to a square of 40x40.
@@ -218,59 +219,36 @@ def load_transforms():
 
 
 def load_model():
-    pitch_model = TemperatureScalingCalibrationModule(FashionCNN(num_output_classes=11))
-    pitch_model.load_state_dict(torch.load("./src/plugins/suzipu_lvlvpu_gongchepu/suzi_model_pitch.std"))
-    secondary_model = TemperatureScalingCalibrationModule(FashionCNN(num_output_classes=7))
-    secondary_model.load_state_dict(torch.load("./src/plugins/suzipu_lvlvpu_gongchepu/suzi_model_secondary.std"))
-
+    pitch_model = TemperatureScalingCalibrationModule(FashionCNN(num_output_classes=17))
+    pitch_model.load_state_dict(torch.load("./src/plugins/suzipu_lvlvpu_gongchepu/lvlv_model.std"))
     pitch_model.eval()
-    secondary_model.eval()
 
-    with open("./src/plugins/suzipu_lvlvpu_gongchepu/suzi_umap_models.pkl", "rb") as file_handle:
+    with open("./src/plugins/suzipu_lvlvpu_gongchepu/lvlv_umap_models.pkl", "rb") as file_handle:
         umap_models = pickle.load(file_handle)
-    with open("./src/plugins/suzipu_lvlvpu_gongchepu/suzi_umap_embeddings.pkl", "rb") as file_handle:
+    with open("./src/plugins/suzipu_lvlvpu_gongchepu/lvlv_umap_embeddings.pkl", "rb") as file_handle:
         umap_embeddings = pickle.load(file_handle)
 
     return {
-        "model": {"pitch": pitch_model, "secondary": secondary_model},
+        "model": {"pitch": pitch_model},
         "umap_models": umap_models,
         "umap_embeddings": umap_embeddings,
     }
 
 
-def predict_similar(image_list, models, transformations):
+def predict_similar(image_list, models):
     concatenation = torch.cat([image.unsqueeze(0) for image in image_list])
 
     pitch_latent = models["model"]["pitch"].get_representation(concatenation).detach().numpy()
-    secondary_latent = models["model"]["secondary"].get_representation(concatenation).detach().numpy()
+    current_pitch_embedding = models["umap_models"](pitch_latent)
+    print(current_pitch_embedding)
 
-    current_pitch_embedding = models["umap_models"]["pitch"](pitch_latent)
-    current_secondary_embedding = models["umap_models"]["secondary"](secondary_latent)
-
-    pitch_nbrs = NearestNeighbors(n_neighbors=3, algorithm='ball_tree').fit(
-        models["umap_embeddings"]["pitch_embeddings"])
+    pitch_nbrs = NearestNeighbors(n_neighbors=3, algorithm='ball_tree').fit(models["umap_embeddings"]["embeddings"])
     pitch_distances, pitch_indices = pitch_nbrs.kneighbors(current_pitch_embedding)
-
-    secondary_nbrs = NearestNeighbors(n_neighbors=3, algorithm='ball_tree').fit(
-        models["umap_embeddings"]["secondary_embeddings"])
-    secondary_distances, secondary_indices = secondary_nbrs.kneighbors(current_secondary_embedding)
 
     def get_dict_pitch(distance, idx):
         image = models["umap_embeddings"]["gui_images"][idx]
         edition = models["umap_embeddings"]["editions"][idx]
-        annotation = transformations["class_to_annotation"]["pitch"][models["umap_embeddings"]["annotations"][idx]["pitch"]]
-
-        return {"image": cv_to_tkinter_image(image.detach().numpy()),
-                "edition": edition,
-                "distance": distance,
-                "similarity": 1 / distance if distance > 0 else 9999,
-                "annotation": annotation}
-
-    def get_dict_secondary(distance, idx):
-        image = models["umap_embeddings"]["gui_images"][idx]
-        edition = models["umap_embeddings"]["editions"][idx]
-
-        annotation = transformations["class_to_annotation"]["secondary"][models["umap_embeddings"]["annotations"][idx]["secondary"]]
+        annotation = ExtendedLvlv.from_class(models["umap_embeddings"]["annotations"][idx])
 
         return {"image": cv_to_tkinter_image(image.detach().numpy()),
                 "edition": edition,
@@ -281,19 +259,15 @@ def predict_similar(image_list, models, transformations):
     output = {"pitch":
                   [[get_dict_pitch(distance, idx) for distance, idx in zip(pitch_distances[IDX], pitch_indices[IDX])]
                    for IDX in range(len(image_list))],
-              "secondary":
-                  [[get_dict_secondary(distance, idx) for distance, idx in
-                    zip(secondary_distances[IDX], secondary_indices[IDX])] for IDX in range(len(image_list))],
               }
 
     return output
 
 
-def predict_notation(image_list, models, transformations):
+def predict_notation(image_list, models):
     concatenation = torch.cat([image.unsqueeze(0) for image in image_list])
 
     pitch_predictions = models["model"]["pitch"].forward(concatenation).detach().numpy()
-    secondary_predictions = models["model"]["secondary"].forward(concatenation).detach().numpy()
 
     def get_first_three(tensor):
         first_confidence = tensor.max()
@@ -312,23 +286,14 @@ def predict_notation(image_list, models, transformations):
 
     def get_dict_pitch(idx):
         annotations, confidences = get_first_three(pitch_predictions[idx])
-        annotations = [transformations["class_to_annotation"]["pitch"][annotation] for annotation in annotations]
+        annotations = [ExtendedLvlv.from_class(annotation) for annotation in annotations]
         return {
             "annotations": annotations,
             "confidences": confidences
         }
 
-    def get_dict_secondary(idx):
-        annotations, confidences = get_first_three(secondary_predictions[idx])
-        annotations = [transformations["class_to_annotation"]["secondary"][annotation] for annotation in annotations]
-        return {
-            "annotations": annotations,
-            "confidences": confidences
-        }
 
-    output = {"pitch": [get_dict_pitch(idx) for idx in range(len(image_list))],
-              "secondary": [get_dict_secondary(idx) for idx in range(len(image_list))],
-    }
+    output = {"pitch": [get_dict_pitch(idx) for idx in range(len(image_list))]}
 
     return output
 
@@ -340,12 +305,12 @@ def predict_all(image_list, models, transformations, update_window=lambda x: Non
         if np.prod(cropped.shape):
             image_list[idx] = transformations["evaluation"](cropped)
         else:
-            image_list[idx] = torch.zeros([1, 28, 28])
+            image_list[idx] = torch.zeros([1, 45, 45])
             empty_idxs.append(idx)
 
-    notation = predict_notation(image_list, models, transformations)
+    notation = predict_notation(image_list, models)
     update_window(75)
-    similar = predict_similar(image_list, models, transformations)
+    similar = predict_similar(image_list, models)
     update_window(100)
 
     return {"prediction": notation,

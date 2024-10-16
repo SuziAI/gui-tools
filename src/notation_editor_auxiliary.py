@@ -635,9 +635,47 @@ class DisplayOptionsFrame(BasicFrame):
             if file_path:
                 save_to_musicxml(file_path)
 
+        def export_text():
+            initialfile = self.notation_state.display_state.last_filename
+            if initialfile == "" or initialfile is None:
+                initialfile = self.notation_state.title.get()
+            file_path = asksaveasfilename(
+                initialdir=self.notation_state.display_state.last_directory,
+                initialfile=initialfile,
+                defaultextension=".txt",
+                filetypes=[("Text File", "*.txt"), ("All Files", "*.*")])
+
+            if file_path:
+                title = self.notation_state.title.get()
+                mode_str = self.notation_state.mode_name.get()
+                preface = self.notation_state.preface.get()
+                mode = GongdiaoModeList.from_properties(self.notation_state.get_mode_properties())
+                unmarked = self.notation_state.unmarked.get()
+
+                music_list = []
+                lyrics_str = ""
+                for idx, box in enumerate(self.notation_state.music_boxes.list):
+                    music_list.append(box.note)
+                    lyrics_str += box.lyrics
+                    if box.line_break:
+                        lyrics_str += "\n"
+
+                music_str = json.dumps(music_list)
+
+                with open(file_path, "w") as text_file:
+                    text_file.write(
+                        f"Title: {title}\n\n"
+                        f"Mode: {mode_str}（{mode.name}\n\n"
+                        f"Preface: {preface}\n\n"
+                        f"Lyrics: {lyrics_str}\n\n"
+                        f"Music: {music_str}\n\n"
+                        f"Unmarked: {unmarked}\n\n"
+                    )
+
         export_frame = tk.Frame(frame)
         tk.Button(export_frame, text="Export Image", command=export_image).grid(row=0, column=0)
         tk.Button(export_frame, text="Export MusicXML", command=export_musicxml).grid(row=0, column=1)
+        tk.Button(export_frame, text="Export Text", command=export_text).grid(row=0, column=2)
         export_frame.grid(row=2, column=0)
 
         def update_vertical_and_transposition(*args):

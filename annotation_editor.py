@@ -33,7 +33,7 @@ from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import construct_metadat
 class MainWindow:
     def __init__(self, weights_path: str):
         self.main_window = tk.Tk()
-        self.main_window.title("Chinese Musical Annotation Tool- Main Window")
+        self.main_window.title("Chinese Musical Annotation Tool - Main Window")
 
         self.program_state = ProgramState(piece_properties=PieceProperties(), gui_state=GuiState(self.main_window, weights_path))
 
@@ -259,11 +259,8 @@ class MainWindow:
                 return None
 
             mode = GongdiaoModeList.from_string(self.program_state.gui_state.tk_current_mode_string.get())
-
-            try:
-                music_list = mode.convert_pitches_in_list(music_list)
-            except TypeError:  # This happens when the chosen mode dows not match the piece
-                return None
+            plugin_name = self.program_state.gui_state.tk_notation_plugin_selection.get().lower()
+            module = importlib.import_module(f"src.plugins.{plugin_name}")
 
             fingering = display_notes_frame.get_transposition()
 
@@ -271,7 +268,7 @@ class MainWindow:
             mode_str = f"{get_content_string(BoxType.MODE)}（{GongdiaoModeList.from_string(self.program_state.gui_state.tk_current_mode_string.get()).chinese_name}）"
             preface = get_content_string(BoxType.PREFACE)
 
-            write_to_musicxml(file_path, music_list, lyrics_list, fingering, title, mode_str, preface)
+            module.save_as_musicxml(mode, file_path, music_list, lyrics_list, fingering, title, mode_str, preface)
 
             return None
 
@@ -474,7 +471,7 @@ class MainWindow:
         annotation_frame = AnnotationFrame(self.main_window, self.program_state)
 
         notation_window = tk.Toplevel()
-        notation_window.title("Suzipu Musical Annotation Tool - Notation Display")
+        notation_window.title("Chinese Musical Annotation Tool - Notation Display")
         notation_window.protocol("WM_DELETE_WINDOW", lambda: None)
         notation_window.resizable(False, False)
         #display_notes_frame = AdditionalInfoFrame(notation_window, self.gui_state.gui_state.tk_current_mode_string, on_save_notation, on_save_musicxml, self.piece_properties.get_mode_string)
@@ -523,13 +520,15 @@ class MainWindow:
 
                 if self.program_state.gui_state.tk_current_action.get() == BoxManipulationAction.ANNOTATE:
                     display_notes_frame.set_state(True)
+                    display_notes_frame.configure_musicxml(module.HAS_MUSICXML)
                 else:
                     display_notes_frame.set_state(False)
+                    display_notes_frame.configure_musicxml(False)
                     display_notes_frame.set_image(go_into_annotation_mode_image)
             else:
                 display_notes_frame.set_state(False)
                 display_notes_frame.set_image(plugin_not_support_notation_image)
-
+                display_notes_frame.configure_musicxml(False)
         def start_opencv_timer():
             handle_opencv_window()
             self.main_window.after(10, start_opencv_timer)
@@ -681,8 +680,7 @@ class OpenCvWindow:
                             set_current_annotation_idx(idx)
                         break
 
-        for delete_idx in delete_idxs:
-            program_state.piece_properties.content.delete_index(delete_idx)
+        program_state.piece_properties.content.delete_multiple_indices(delete_idxs)
 
         if selection_mode == BoxManipulationAction.CREATE:
             if self.point_1 is not None:

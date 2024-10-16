@@ -2,6 +2,7 @@ import copy
 import dataclasses
 import json
 import os
+import pickle
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter.messagebox import askyesno
@@ -9,12 +10,12 @@ from tkinter.messagebox import askyesno
 import PIL
 from PIL import ImageTk, Image, ImageChops
 
-from src.auxiliary import BoxType
+from src.auxiliary import BoxType, onedim_cv_to_tkinter_image, open_file_as_tk_image
 from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import common_notation_to_jianpu, common_notation_to_staff, \
     NotationResources, notation_to_custom
 from src.plugins.suzipu_lvlvpu_gongchepu.suzipu_intelligent_assistant import load_model, load_transforms, predict_all
 from src.programstate import ProgramState
-from src.config import CHINESE_FONT_FILE
+from src.config import CHINESE_FONT_FILE, NO_KUISCIMA_ANNOTATIONS
 from src.plugins.suzipu_lvlvpu_gongchepu.common import Symbol, SuzipuMelodySymbol, SuzipuAdditionalSymbol, \
     _create_suzipu_images, ModeSelectorFrame, Lvlv, GongcheMelodySymbol
 
@@ -22,7 +23,7 @@ from src.plugins.suzipu_lvlvpu_gongchepu.common import Symbol, SuzipuMelodySymbo
 EMPTY_ANNOTATION = {"type": "FULL_JIANZIPU", "content": {"content": ""}}
 PLUGIN_NAME = "Jianzipu (structure)"
 DISPLAY_NOTATION = True
-
+HAS_MUSICXML = False
 
 def open_images():
     images = {}
@@ -646,22 +647,62 @@ class NotationAnnotationFrame:
         self.annotation_images = JIANZIPU_IMAGES
         self.annotation_widgets = []
 
+        def get_reference_images():
+            with open("./src/plugins/suzipu_lvlvpu_gongchepu/suzi_lvlv_jianzi_references.pkl", "rb") as file_handle:
+                obj = pickle.load(file_handle)
+                for key in obj.keys():
+                    for key2 in obj[key].keys():
+                        obj[key][key2] = onedim_cv_to_tkinter_image(obj[key][key2])
+                return obj
+
+        self.reference_images = get_reference_images()
+        self.canvas = None
+        self._image = None
+        self.no_annotations_image = open_file_as_tk_image(NO_KUISCIMA_ANNOTATIONS)
+
         self._create_frame()
 
     def _create_frame(self):
         annotation_selection_frame = tk.Frame(self.frame)
+
+        def on_intelligent():
+            intelligent_assistant_window = tk.Toplevel(self.frame)
+            intelligent_assistant_window.title("Chinese Musical Annotation Tool - Jianzipu Intelligent Assistant")
+
+            canvas_frame = tk.LabelFrame(intelligent_assistant_window, text="KuiSCIMA Instances With Same Annotation")
+            self.canvas = tk.Canvas(canvas_frame, relief="sunken", state="disabled")
+            vbar = tk.Scrollbar(canvas_frame, orient=tk.VERTICAL)
+            vbar.pack(side=tk.RIGHT, fill=tk.BOTH)
+            vbar.config(command=self.canvas.yview)
+            self.canvas.config(yscrollcommand=vbar.set)
+            self.canvas.pack(padx=5, pady=5)
+
+            def onFrameConfigure(event):
+                self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+            canvas_frame.bind("<Configure>", onFrameConfigure)
+            canvas_frame.pack(padx=5, pady=5)
+
+            self.update_display()
+
+        intelligent_frame = tk.Frame(annotation_selection_frame)
+        intelligent_button = tk.Button(intelligent_frame, text="Intelligent Assistant...", command=on_intelligent,
+                                       state="disabled")
+        intelligent_button.pack()
+        intelligent_frame.grid(row=0, column=0)
+
         jzp_button = tk.Radiobutton(annotation_selection_frame, text="Full Jianzipu", indicator=0, state="disabled",
                                     value=JianzipuSymbolType.FULL_JIANZIPU, variable=self.selection_variable,
                                     command=lambda: self._change_frame(JianzipuSymbolType.FULL_JIANZIPU))
-        jzp_button.grid(row=0, column=0)
+        jzp_button.grid(row=0, column=1)
         sn_button = tk.Radiobutton(annotation_selection_frame, text="String Number", indicator=0, state="disabled",
                                    value=JianzipuSymbolType.STRING_NUMBER, variable=self.selection_variable,
                                    command=lambda: self._change_frame(JianzipuSymbolType.STRING_NUMBER))
-        sn_button.grid(row=0, column=1)
+        sn_button.grid(row=0, column=2)
         lh_button = tk.Radiobutton(annotation_selection_frame, text="Left Hand", indicator=0, state="disabled",
                                    value=JianzipuSymbolType.LEFT_HAND, variable=self.selection_variable,
                                    command=lambda: self._change_frame(JianzipuSymbolType.LEFT_HAND))
-        lh_button.grid(row=0, column=2)
+        lh_button.grid(row=0, column=3)
 
         notation_subframe = tk.Frame(self.frame)
         display_frame = tk.Frame(notation_subframe)
@@ -679,7 +720,7 @@ class NotationAnnotationFrame:
         annotation_selection_frame.pack(side="top")
         notation_subframe.pack(side="bottom")
 
-        self._widgets = [self.display_image, jzp_button, sn_button, lh_button]
+        self._widgets = [self.display_image, intelligent_button, jzp_button, sn_button, lh_button]
 
     def _change_frame(self, id):
         if id == JianzipuSymbolType.FULL_JIANZIPU:
@@ -705,6 +746,18 @@ class NotationAnnotationFrame:
     def update_display(self):
         annotation = self.program_state.get_current_annotation()
 
+        if self.canvas:
+            try:
+                self.canvas.delete('all')
+                self._image = self.reference_images["Jianzipu"][str(annotation)]
+                self.canvas.yview_moveto(0)
+            except Exception as e:
+                print(e)
+                self._image = self.no_annotations_image
+            image_on_canvas = self.canvas.create_image(0, 0, image=self._image, anchor="nw")
+            self.canvas.config(width=600,
+                               height=500)
+
         try:
             self._change_frame(annotation["type"])
         except (KeyError, TypeError) as e:
@@ -715,6 +768,18 @@ class NotationAnnotationFrame:
 
     def update_annotation(self, annotation):
         self.program_state.set_current_annotation(annotation)
+
+        if self.canvas:
+            try:
+                self.canvas.delete('all')
+                self._image = self.reference_images["Jianzipu"][str(annotation)]
+                self.canvas.yview_moveto(0)
+            except Exception as e:
+                print(e)
+                self._image = self.no_annotations_image
+            image_on_canvas = self.canvas.create_image(0, 0, image=self._image, anchor="nw")
+            self.canvas.config(width=600,
+                               height=500)
 
     def set_state(self, boolean):
         if boolean:

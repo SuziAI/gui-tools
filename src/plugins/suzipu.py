@@ -1,5 +1,6 @@
 import dataclasses
 import json
+import pickle
 import tkinter as tk
 import tkinter.ttk
 from tkinter.messagebox import askyesno
@@ -7,12 +8,12 @@ from tkinter.messagebox import askyesno
 import PIL
 from PIL import ImageTk
 
-from src.auxiliary import BoxType
+from src.auxiliary import BoxType, cv_to_tkinter_image, open_file_as_tk_image, onedim_cv_to_tkinter_image
 from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import common_notation_to_jianpu, common_notation_to_staff, \
-    notation_to_suzipu, NotationResources
+    notation_to_suzipu, NotationResources, write_to_musicxml
 from src.plugins.suzipu_lvlvpu_gongchepu.suzipu_intelligent_assistant import load_model, load_transforms, predict_all
 from src.programstate import ProgramState
-from src.config import CHINESE_FONT_FILE
+from src.config import CHINESE_FONT_FILE, NO_KUISCIMA_ANNOTATIONS
 from src.plugins.suzipu_lvlvpu_gongchepu.common import Symbol, SuzipuMelodySymbol, SuzipuAdditionalSymbol, \
     _create_suzipu_images, ModeSelectorFrame
 
@@ -20,8 +21,16 @@ from src.plugins.suzipu_lvlvpu_gongchepu.common import Symbol, SuzipuMelodySymbo
 EMPTY_ANNOTATION = {"pitch": None, "secondary": None}
 PLUGIN_NAME = "Suzipu"
 DISPLAY_NOTATION = True
+HAS_MUSICXML = True
 
 RESOURCES = NotationResources()
+
+def save_as_musicxml(mode, file_path, music_list, lyrics_list, fingering, title, mode_str, preface):
+    try:
+        music_list = mode.convert_pitches_in_list(music_list)
+    except TypeError:  # This happens when the chosen mode dows not match the piece
+        return None
+    write_to_musicxml(file_path, music_list, lyrics_list, fingering, title, mode_str, preface)
 
 
 def notation_to_own(mode, music_list, lyrics_list, line_break_idxs, fingering, return_boxes=False, is_vertical=False):
@@ -54,6 +63,7 @@ class IntelligentAssistantFrame:
         self._transforms = None
         self._predictions = None
         self._prediction_frames = None
+        self._notation_annotations = None
 
         self._widgets = []
         self._create_frame()
@@ -158,16 +168,19 @@ class IntelligentAssistantFrame:
             progress.set(50)
             win.update()
 
-        self._predictions = predict_all(self.program_state.get_raw_box_images_from_type(BoxType.MUSIC), self._models, self._transforms, update_window=lambda x: [progress.set(x), win.update()])
+        current_box_type = self.program_state.get_current_type() # Must be music type
+        self._predictions = predict_all(self.program_state.get_raw_box_images_from_type(current_box_type), self._models, self._transforms, update_window=lambda x: [progress.set(x), win.update()])
         predictions = [(self._predictions["prediction"]["pitch"][box_idx]["annotations"][0], self._predictions["prediction"]["secondary"][box_idx]["annotations"][0]) for box_idx in range(len(self._predictions["prediction"]["secondary"]))]
         for empty_idx in self._predictions["empty_idxs"]:
             predictions[empty_idx] = (None, None)
-        notation_annotations = [{"pitch": pitch, "secondary": secondary} for pitch, secondary in predictions]
 
-        self.program_state.fill_all_boxes_of_current_type(notation_annotations)
+        self._notation_annotations = [{"pitch": pitch, "secondary": secondary} for pitch, secondary in predictions]
         self.update()
 
         win.destroy()
+
+    def overwrite_all_music_boxes(self):
+        self.program_state.fill_all_boxes_of_current_type(self._notation_annotations)
 
 
 class PredictionDisplayFrame:
@@ -287,6 +300,18 @@ class NotationAnnotationFrame:
         self.mode_selector = None
         self._button_images = _create_suzipu_images()
 
+        def get_reference_images():
+            with open("./src/plugins/suzipu_lvlvpu_gongchepu/suzi_lvlv_jianzi_references.pkl", "rb") as file_handle:
+                obj = pickle.load(file_handle)
+                for key in obj.keys():
+                    for key2 in obj[key].keys():
+                        obj[key][key2] = onedim_cv_to_tkinter_image(obj[key][key2])
+                return obj
+        self.reference_images = get_reference_images()
+        self.canvas = None
+        self._image = None
+        self.no_annotations_image = open_file_as_tk_image(NO_KUISCIMA_ANNOTATIONS)
+
         self.symbol_display = None
         self.intelligent_assistant_frame = None
 
@@ -300,7 +325,21 @@ class NotationAnnotationFrame:
     def update_display(self):
         annotation = self.program_state.get_current_annotation()
         self.symbol_display.update(annotation)
-        self.intelligent_assistant_frame.update()
+
+        if self.intelligent_assistant_frame:
+            self.intelligent_assistant_frame.update()
+
+        if self.canvas:
+            try:
+                self.canvas.delete('all')
+                self._image = self.reference_images["Suzipu"][str(annotation)]
+                self.canvas.yview_moveto(0)
+            except Exception as e:
+                print(e)
+                self._image = self.no_annotations_image
+            image_on_canvas = self.canvas.create_image(0, 0, image=self._image, anchor="nw")
+            self.canvas.config(width=600,
+                               height=500)
 
         if annotation is not None:
             try:
@@ -320,7 +359,6 @@ class NotationAnnotationFrame:
         annotator_frame = tk.Frame(self.frame)
 
         self.symbol_display = SymbolDisplayFrame(annotator_frame, self._button_images)
-        self.intelligent_assistant_frame = IntelligentAssistantFrame(self.frame, self.program_state, self._button_images)
 
         def update_annotation(*args):
             def return_none_if_none(string):
@@ -368,13 +406,52 @@ class NotationAnnotationFrame:
                 self.program_state.fill_all_boxes_of_current_type(json.loads(text_variable))
 
         def on_intelligent_assistant():
-            make_prediction = askyesno("Intelligent Assistant - Proceed", message="Intelligent Assistant tries to automatically recognize the notation in the boxes.\nIt might take some time, and it overwrites all contents of MUSIC boxes.\nProceed?")
-            if make_prediction:
+            intelligent_assistant_window = tk.Toplevel(self.frame)
+            intelligent_assistant_window.title("Chinese Musical Annotation Tool - Suzipu Intelligent Assistant")
+
+            canvas_frame = tk.LabelFrame(intelligent_assistant_window, text="KuiSCIMA Instances With Same Annotation")
+            self.canvas = tk.Canvas(canvas_frame, relief="sunken", state="disabled")
+            vbar = tk.Scrollbar(canvas_frame, orient=tk.VERTICAL)
+            vbar.pack(side=tk.RIGHT, fill=tk.BOTH)
+            vbar.config(command=self.canvas.yview)
+            self.canvas.config(yscrollcommand=vbar.set)
+            self.canvas.pack(padx=5, pady=5)
+            def onFrameConfigure(event):
+                self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+            canvas_frame.bind("<Configure>", onFrameConfigure)
+
+            omr_frame = tk.LabelFrame(intelligent_assistant_window, text="Optical Music Recognition")
+            self.intelligent_assistant_frame = IntelligentAssistantFrame(omr_frame, self.program_state,
+                                                                         self._button_images)
+            self.intelligent_assistant_frame.set_state(True)
+
+            int_buttons_frame = tk.Frame(omr_frame)
+
+            def on_click_predict():
                 self.intelligent_assistant_frame.predict()
-                self.intelligent_assistant_frame.get_frame().grid(row=3, column=0, padx=10, pady=4)
                 self.intelligent_assistant_frame.update()
-                self.intelligent_assistant_frame.set_state(True)
                 self.update_display()
+                overwrite_button.config(state="normal")
+
+            def on_overwrite():
+                make_prediction = askyesno("Overwrite Annotations - Proceed",
+                                           message="All the annotations will be overwritten with the model predictions. The original annotations will be lost.\nProceed?")
+                if make_prediction:
+                    self.intelligent_assistant_frame.overwrite_all_music_boxes()
+                    self.update_display()
+
+            tk.Button(int_buttons_frame, text="Predict", command=on_click_predict).grid(row=0, column=0)
+            overwrite_button = tk.Button(int_buttons_frame, text="Overwrite Annotations with Predictions", state="disabled", command=on_overwrite)
+            overwrite_button.grid(row=0, column=1)
+
+
+            int_buttons_frame.pack()
+            self.intelligent_assistant_frame.get_frame().pack()
+
+            omr_frame.pack(padx=5, pady=5)
+            canvas_frame.pack(padx=5, pady=5)
+
+            self.update_display()
 
         button_frame = tk.Frame(self.frame)
         quick_fill_button = tk.Button(button_frame, text="Quick Fill...", command=on_quick_fill, state="disabled")
@@ -400,14 +477,8 @@ class NotationAnnotationFrame:
         return self.frame
 
     def set_state(self, boolean):
-        if boolean:
-            state = "normal"
-        else:
-            state = "disabled"
-            self.intelligent_assistant_frame.get_frame().grid_forget()
-
         for widget in self._widgets:
-            widget.config(state=state)
+            widget.config(state="normal" if boolean else "disabled")
         self.symbol_display.set_state(boolean)
         self.mode_selector.set_state(boolean)
 

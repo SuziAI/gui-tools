@@ -20,6 +20,7 @@ from src.plugins.suzipu_lvlvpu_gongchepu.common import Symbol, SuzipuMelodySymbo
 EMPTY_ANNOTATION = None
 PLUGIN_NAME = "No Notation"
 DISPLAY_NOTATION = True
+HAS_MUSICXML = False
 
 
 RESOURCES = NotationResources()

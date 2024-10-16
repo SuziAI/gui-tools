@@ -86,6 +86,10 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
 
             box_list = segmentation_data["content"]
 
+            current_filename = os.path.basename(file_name)
+            current_stem = os.path.splitext(current_filename)[0]
+            notation_type = segmentation_data["notation_type"]
+
             for idx, box in enumerate(box_list):
                 is_excluded = False
                 try:
@@ -99,7 +103,7 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
                         try:
                             cut_out_text_image = get_image_from_box(image, box["text_coordinates"])
                             text_annotation = box["text_content"]
-                            box_file_name = f"{os.path.splitext(os.path.basename(image_paths[0]))[0]}_{idx}.png"
+                            box_file_name = f"{os.path.splitext(os.path.basename(image_paths[0]))[0]}_{current_stem}_{idx}.png"
                             box_file_path = os.path.join(text_images_dir, box_file_name)
 
                             if text_annotation != "":
@@ -115,15 +119,22 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
                         try:
                             cut_out_notation_image = get_image_from_box(image, box["notation_coordinates"])
                             notation_annotation = box["notation_content"]
-                            box_file_name = f"{os.path.splitext(os.path.basename(image_paths[0]))[0]}_{idx}.png"
+                            current_text_annotation = box["text_content"]
+                            box_file_name = f"{os.path.splitext(os.path.basename(image_paths[0]))[0]}_{current_stem}_{idx}.png"
                             box_file_path = os.path.join(music_images_dir, box_file_name)
+
+                            current_edition = os.path.basename(box_file_path).split("_")[0]
 
                             if notation_annotation != "":
                                 image_relpath = os.path.relpath(box_file_path, music_dir)
                                 music_annotations.append({
                                     "image_path": image_relpath,
                                     "type": current_type,
-                                    "annotation": notation_annotation})
+                                    "notation_type": notation_type,
+                                    "annotation": notation_annotation,
+                                    "edition": current_edition,
+                                    "filename": current_filename,
+                                    "text_annotation": current_text_annotation})
                                 cv2.imwrite(box_file_path, cut_out_notation_image)
                         except:
                             pass

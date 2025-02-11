@@ -8,6 +8,7 @@ CHINESE_FONT_FILE = "./res/Noto_Sans_SC/NotoSansSC-Regular.otf"
 INVALID_MODE_IMAGE = "./res/invalid_mode.png"
 GO_INTO_ANNOTATION_MODE_IMAGE = "./res/go_into_annotation_mode.png"
 PLUGIN_NOT_SUPPORT_NOTATION_IMAGE = "./res/plugin_not_support_notation_image.png"
+NO_KUISCIMA_ANNOTATIONS = "./res/no_kuiscima_annotations.png"
 
 NOTATION_BUTTON_IMAGE = "./res/notation_button.png"
 JIANPU_BUTTON_IMAGE = "./res/jianpu_button.png"

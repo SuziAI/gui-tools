@@ -15,11 +15,11 @@ from src.plugins import NotationTypePlugins
 
 @dataclasses.dataclass
 class PieceProperties(JsonSerializable):
-    notation_type: str = NotationTypePlugins()
+    notation_type: str = dataclasses.field(default_factory=NotationTypePlugins)
     number_of_pages: int = 1
     mode_properties: dict = dataclasses.field(default_factory=dict)
     base_image_path: str = dataclasses.field(default=None)
-    content: BoxesWithType = dataclasses.field(default=BoxesWithType())
+    content: BoxesWithType = dataclasses.field(default_factory=BoxesWithType)
     version: str = "2.0"
     composer: str = ""
 
@@ -348,4 +348,5 @@ class ProgramState:
         self.gui_state.main_window.wait_visibility(win)
         win.update()
         segment()
+        self.piece_properties.content.sort()
         win.destroy()

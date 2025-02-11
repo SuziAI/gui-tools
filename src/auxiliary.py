@@ -6,7 +6,9 @@ import os
 import PIL
 import cv2
 import numpy as np
+import torch
 from PIL import Image, ImageTk
+from torchvision import transforms
 
 
 def draw_transparent_rectangle(image, rect0, rect1, color, thickness, alpha=0.7):
@@ -188,21 +190,66 @@ def get_class_variables(classname):
 
 
 def get_image_from_box_fixed_size(current_image, box):
+    def shrink(target_size=70):
+        def inner(input_image):
+            t_size = target_size
+
+            original_width = input_image.shape[-1]
+            original_height = input_image.shape[-2]
+            aspect_ratio = original_width / original_height
+
+            if aspect_ratio > 1:
+                w = int(t_size)
+                h = int(t_size / aspect_ratio)
+            else:
+                w = int(t_size * aspect_ratio)
+                h = int(t_size)
+
+            output_image = transforms.Resize(size=(h, w), interpolation=transforms.InterpolationMode.NEAREST_EXACT)(
+                input_image)
+            return output_image
+
+        return inner
+
+    def paste_to_square(target_size=80):
+        def inner(input_image):
+            pad_width = target_size - input_image.shape[-1]
+            pad_height = target_size - input_image.shape[-2]
+
+            left_pad = pad_width // 2
+            top_pad = pad_height // 2
+
+            right_pad = pad_width - left_pad
+            bottom_pad = pad_height - top_pad
+
+            output_image = transforms.Pad(padding=(left_pad, top_pad, right_pad, bottom_pad), fill=255)(input_image)
+            return output_image
+        return inner
+
     (x1, y1), (x2, y2) = box
     x1, x2 = min(x1, x2), max(x1, x2)
     y1, y2 = min(y1, y2), max(y1, y2)
 
     cropped_img = current_image[y1:y2, x1:x2]
     blue, green, red = cv2.split(cropped_img)
-    cropped_img = cv2.merge((red, green, blue))
+    blue, green, red = torch.Tensor(blue).unsqueeze(0), torch.Tensor(green).unsqueeze(0), torch.Tensor(red).unsqueeze(0)
+    cropped_img = torch.cat((red, green, blue), dim=0)
+    cropped_img = shrink()(torch.Tensor(cropped_img))
+    cropped_img = paste_to_square()(cropped_img)
+    cropped_img = cropped_img.permute([1, 2, 0])
+    cropped_img = cropped_img.numpy().astype(np.uint8)
     cropped_img = Image.fromarray(cropped_img)
-    return_img = Image.new(cropped_img.mode, (80, 80), (255, 255, 255))
-    return_img.paste(cropped_img, ((80 - cropped_img.size[0]) // 2, (80 - cropped_img.size[1]) // 2))
-    return ImageTk.PhotoImage(image=return_img)
+    return ImageTk.PhotoImage(image=cropped_img)
 
 
 def cv_to_tkinter_image(cv_image):
     channel = cv_image[0, :, :]
+    merge_img = cv2.merge((channel, channel, channel)).astype(np.uint8)
+    merge_img = Image.fromarray(merge_img)
+    return ImageTk.PhotoImage(image=merge_img)
+
+def onedim_cv_to_tkinter_image(cv_image):
+    channel = cv_image
     merge_img = cv2.merge((channel, channel, channel)).astype(np.uint8)
     merge_img = Image.fromarray(merge_img)
     return ImageTk.PhotoImage(image=merge_img)
@@ -342,6 +389,10 @@ class BoxesWithType(JsonSerializable):
 
     def delete_index(self, idx):
         del self.boxes_list[idx]
+
+    def delete_multiple_indices(self, idxs):
+        for idx in sorted(idxs, reverse=True):
+            del self.boxes_list[idx]
 
     def reorder(self, new_order):
         if len(new_order) == len(self):

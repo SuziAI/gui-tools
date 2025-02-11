@@ -1,4 +1,5 @@
 import dataclasses
+import importlib
 import tkinter as tk
 
 import chinese_converter
@@ -575,6 +576,9 @@ class DisplayNotesFrame:
     def get_transposition(self):
         return Fingering.from_string(self.transposition_string.get())
 
+    def configure_musicxml(self, boolean):
+        self.widgets[-1].config(state="normal" if boolean else "disabled")
+
 
 class StatisticsFrame:
     def __init__(self, window_handle):
@@ -650,21 +654,26 @@ class NoteFrames:
         self._default_bg_color = None
 
     def get_frame(self):
+        pitch_list = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B", "c", "c#", "d",
+                     "d#"]
         lvlv_list = ["黄", "大", "太", "夹", "姑", "仲", "蕤", "林", "夷", "南", "无", "应", "黄清", "大清", "太清",
                      "夹清"]
         gongche_list = ["合", "下四", "四", "下一", "一", "上", "勾", "尺", "下工", "工", "下凡", "凡", "六",
                         "下五", "五", "高五"]
 
         labels_frame = tk.Frame(self.frame)
-        lvlv_label = tk.Label(labels_frame, text="律吕")
-        gongche_label = tk.Label(labels_frame, text="工尺")
-        scale_degree_label = tk.Label(labels_frame, text="声音阶")
-        suzipu_label = tk.Label(labels_frame, text="俗字谱")
 
-        lvlv_label.grid(row=0, column=0, padx=10, pady=5)
-        gongche_label.grid(row=1, column=0, padx=10, pady=5)
-        scale_degree_label.grid(row=2, column=0, padx=10, pady=5)
-        suzipu_label.grid(row=3, column=0, padx=10, pady=5)
+        pitch_label = tk.Label(labels_frame, text="Pitch ID")
+        lvlv_label = tk.Label(labels_frame, text="Lülü")  #text="律吕")
+        gongche_label = tk.Label(labels_frame, text="Gongche")  #text="工尺")
+        scale_degree_label = tk.Label(labels_frame, text="Scale Degree")  #text="声音阶")
+        suzipu_label = tk.Label(labels_frame, text="Suzipu")  #text="俗字谱")
+
+        pitch_label.grid(row=0, column=0, padx=10, pady=5)
+        lvlv_label.grid(row=1, column=0, padx=10, pady=5)
+        gongche_label.grid(row=2, column=0, padx=10, pady=5)
+        scale_degree_label.grid(row=3, column=0, padx=10, pady=5)
+        suzipu_label.grid(row=4, column=0, padx=10, pady=5)
 
         labels_frame.grid(row=0, column=0)
 
@@ -673,6 +682,7 @@ class NoteFrames:
             textvar = tk.StringVar()
             self.scale_degree_vars_list.append(textvar)
 
+            pitch_label = tk.Label(subframe, text=pitch_list[idx])
             lvlv_label = tk.Label(subframe, text=lvlv_list[idx])
             gongche_label = tk.Label(subframe, text=gongche_list[idx])
             scale_degree_label = tk.Label(subframe, textvariable=textvar, relief="sunken", width=3)
@@ -680,13 +690,14 @@ class NoteFrames:
             self.suzipu_images_list.append(suzipu_label)
             self.scale_degree_label_list.append(scale_degree_label)
 
-            lvlv_label.grid(row=0, column=0, padx=10, pady=5)
-            gongche_label.grid(row=1, column=0, padx=10, pady=5)
-            scale_degree_label.grid(row=2, column=0, padx=10, pady=5)
-            suzipu_label.grid(row=3, column=0, padx=10, pady=5)
+            pitch_label.grid(row=0, column=0, padx=10, pady=5)
+            lvlv_label.grid(row=1, column=0, padx=10, pady=5)
+            gongche_label.grid(row=2, column=0, padx=10, pady=5)
+            scale_degree_label.grid(row=3, column=0, padx=10, pady=5)
+            suzipu_label.grid(row=4, column=0, padx=10, pady=5)
 
             subframe.grid(row=0, column=idx+1)
-            self.widgets += [lvlv_label, gongche_label, scale_degree_label, suzipu_label]
+            self.widgets += [pitch_label, lvlv_label, gongche_label, scale_degree_label, suzipu_label]
 
         self._default_bg_color = suzipu_label.cget("bg")
         return self.frame
@@ -762,6 +773,7 @@ class ModeSelectorFrame:
                 def execute_mode_display_window():
                     self.mode_info_is_active = True
                     custom_mode_window = tk.Toplevel()
+                    custom_mode_window.title("Chinese Musical Annotation Tool - Mode Information")
                     self.mode_display_frame = ModeDisplayFrame(custom_mode_window, self.mode_gong_lvlv, self.mode_final_note)
                     self.mode_display_frame.get_frame().pack()
                     self.mode_display_frame.update()
@@ -799,9 +811,9 @@ class ModeSelectorFrame:
                     custom_mode_window.destroy()
 
                 selection_frame = tk.Frame(custom_mode_window)
-                lvlv_label = tk.Label(selection_frame, text="Mode's 宫")
+                lvlv_label = tk.Label(selection_frame, text="Mode's Gong 宫")
                 lvlv_selector = tk.OptionMenu(selection_frame, gong_lvlv_var, gong_lvlv_var.get(), *lvlv_list)
-                final_note_label = tk.Label(selection_frame, text="Mode's Final Note")
+                final_note_label = tk.Label(selection_frame, text="Mode's Final Degree")
                 final_note_selector = tk.OptionMenu(selection_frame, final_note_var, final_note_var.get(), *final_note_list)
 
                 lvlv_label.grid(row=0, column=0)
@@ -861,7 +873,7 @@ class ModeSelectorFrame:
 class ModeDisplayFrame:
     def __init__(self, window_handle, mode_gong_lvlv, mode_final_note):
         self.window_handle = window_handle
-        self.frame = tk.LabelFrame(self.window_handle, text="Mode")
+        self.frame = tk.Frame(self.window_handle)
 
         self.mode_gong_lvlv = mode_gong_lvlv
         self.mode_final_note = mode_final_note
@@ -870,22 +882,52 @@ class ModeDisplayFrame:
 
         self.note_frames = NoteFrames(self.frame)
 
+        self.mode_name_display = None
+        self.chinese_mode_name_display = None
+        self.gong_lvlv_display = None
+        self.final_degree_display = None
+
         self._create_frame()
 
     def get_properties(self):
         return {"gong_lvlv": self.mode_gong_lvlv.get(), "final_note": self.mode_final_note.get()}
 
     def _create_frame(self):
+        mode_info_frame = tk.Frame(self.frame)
+        mode_name = tk.Label(mode_info_frame, text="Name:")
+        mode_name.grid(row=0, column=0, padx=5, pady=5)
+        self.mode_name_display = tk.Label(mode_info_frame, text="", relief="sunken", width=15)
+        self.mode_name_display.grid(row=0, column=1, padx=5, pady=5)
+        self.chinese_mode_name_display = tk.Label(mode_info_frame, text="", relief="sunken", width=15)
+        self.chinese_mode_name_display.grid(row=1, column=1, padx=5, pady=5)
+
+        mode_properties = tk.Label(mode_info_frame, text="Gong 宫:")
+        mode_properties.grid(row=0, column=2, padx=5, pady=5)
+        self.gong_lvlv_display = tk.Label(mode_info_frame, text="", relief="sunken", width=4)
+        self.gong_lvlv_display.grid(row=0, column=3, padx=5, pady=5)
+        final_note = tk.Label(mode_info_frame, text="Final Degree:")
+        final_note.grid(row=1, column=2, padx=5, pady=5)
+        self.final_degree_display = tk.Label(mode_info_frame, text="", relief="sunken", width=4, bg="aquamarine")
+        self.final_degree_display.grid(row=1, column=3, padx=5, pady=5)
+
+        mode_info_frame.grid(row=0, column=0)
         zhuyin_label = tk.Label(self.frame, text="(Final is marked in cyan)")
-        self.note_frames.get_frame().grid(row=0, column=0)
-        zhuyin_label.grid(row=1, column=0)
+        self.note_frames.get_frame().grid(row=1, column=0)
+        zhuyin_label.grid(row=2, column=0)
 
     def get_frame(self):
         return self.frame
 
     def update(self, *args):
         self.note_frames.update(GongdiaoModeList.from_properties(self.get_properties()))
-
+        if self.mode_name_display:
+            self.mode_name_display.config(text=GongdiaoModeList.from_properties(self.get_properties()).name)
+        if self.chinese_mode_name_display:
+            self.chinese_mode_name_display.config(text=GongdiaoModeList.from_properties(self.get_properties()).chinese_name)
+        if self.gong_lvlv_display:
+            self.gong_lvlv_display.config(text=Lvlv.to_name(GongdiaoModeList.from_properties(self.get_properties()).gong_lvlv)[0])
+        if self.final_degree_display:
+            self.final_degree_display.config(text=GongdiaoStep.to_name(GongdiaoModeList.from_properties(self.get_properties()).final_note))
 
 class AdditionalInfoFrame:
     def __init__(self, window_handle, mode_variable, on_save_notation=lambda: None, on_save_musicxml=lambda: None, get_mode_string=lambda: None):

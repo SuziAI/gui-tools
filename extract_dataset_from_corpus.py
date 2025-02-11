@@ -77,6 +77,7 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
     for file_name in json_files:
         with open(file_name, "r") as file_handle:
             segmentation_data = json.load(file_handle)
+
             try:
                 image_paths = [os.path.join(os.path.dirname(file_name), path) for path in segmentation_data["images"]]
             except KeyError:
@@ -106,7 +107,7 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
                             box_file_name = f"{os.path.splitext(os.path.basename(image_paths[0]))[0]}_{current_stem}_{idx}.png"
                             box_file_path = os.path.join(text_images_dir, box_file_name)
 
-                            if text_annotation != "":
+                            if text_annotation != "" and text_annotation is not None:
                                 image_relpath = os.path.relpath(box_file_path, text_dir)
                                 text_annotations.append({
                                     "image_path": image_relpath,
@@ -125,7 +126,7 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
 
                             current_edition = os.path.basename(box_file_path).split("_")[0]
 
-                            if notation_annotation != "":
+                            if notation_annotation != "" and notation_annotation is not None and ("pitch" not in notation_annotation or notation_annotation["pitch"] is not None ):
                                 image_relpath = os.path.relpath(box_file_path, music_dir)
                                 music_annotations.append({
                                     "image_path": image_relpath,
@@ -136,7 +137,7 @@ def extract_dataset_from_corpus(corpus_dir, output_dir):
                                     "filename": current_filename,
                                     "text_annotation": current_text_annotation})
                                 cv2.imwrite(box_file_path, cut_out_notation_image)
-                        except:
+                        except Exception as e:
                             pass
 
         with open(os.path.join(music_dir, "dataset.json"), "w") as output_file_handle:

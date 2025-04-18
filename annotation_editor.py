@@ -21,7 +21,8 @@ from src.auxiliary import is_point_in_rectangle, Colors, \
     state_to_json, get_folder_contents, BoxType, BoxesWithType, ListCycle, \
     BoxManipulationAction, draw_transparent_rectangle, draw_transparent_line
 from src.programstate import PieceProperties, GuiState, ProgramState
-from src.config import GO_INTO_ANNOTATION_MODE_IMAGE, INVALID_MODE_IMAGE, PLUGIN_NOT_SUPPORT_NOTATION_IMAGE
+from src.config import GO_INTO_ANNOTATION_MODE_IMAGE, INVALID_MODE_IMAGE, PLUGIN_NOT_SUPPORT_NOTATION_IMAGE, \
+    FULL_ANNOTATION_NAME
 from src.widgets_auxiliary import on_closing, IncrementDecrementFrame, PreviousNextFrame, \
     SelectionFrame, SaveLoadFrame, PiecePropertiesFrame
 from src.widgets_annotation import AnnotationFrame
@@ -29,18 +30,17 @@ from src.plugins.suzipu_lvlvpu_gongchepu.common import GongdiaoModeList, Display
 from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import construct_metadata_image, vertical_composition, \
     add_border, write_to_musicxml, horizontal_composition
 
-
 class MainWindow:
     def __init__(self, weights_path: str):
         self.main_window = tk.Tk()
-        self.main_window.title("Chinese Musical Annotation Tool - Main Window")
+        self.main_window.title(f"{FULL_ANNOTATION_NAME} - Main Window")
 
         self.program_state = ProgramState(piece_properties=PieceProperties(), gui_state=GuiState(self.main_window, weights_path))
 
     def exec(self):
         self.program_state.gui_state.main_window.bind("<Control-s>", lambda x: on_save())
 
-        opencv_window = OpenCvWindow("Chinese Musical Annotation Tool - Canvas", self.program_state)
+        opencv_window = OpenCvWindow(f"{FULL_ANNOTATION_NAME} - Canvas", self.program_state)
 
         def ensure_current_image():
             image_must_be_changed = self.program_state.gui_state.must_be_changed or self.program_state.piece_properties.base_image_path is None
@@ -471,7 +471,7 @@ class MainWindow:
         annotation_frame = AnnotationFrame(self.main_window, self.program_state)
 
         notation_window = tk.Toplevel()
-        notation_window.title("Chinese Musical Annotation Tool - Notation Display")
+        notation_window.title(f"{FULL_ANNOTATION_NAME} - Notation Display")
         notation_window.protocol("WM_DELETE_WINDOW", lambda: None)
         notation_window.resizable(False, False)
         #display_notes_frame = AdditionalInfoFrame(notation_window, self.gui_state.gui_state.tk_current_mode_string, on_save_notation, on_save_musicxml, self.piece_properties.get_mode_string)

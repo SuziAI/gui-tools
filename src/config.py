@@ -1,3 +1,6 @@
+FULL_ANNOTATION_NAME = "Chinese Musical Notation Annotation Tool"
+FULL_NOTATION_NAME = "Chinese Musical Notation Editor"
+
 SUZIPU_IMAGE_PATH = "./res/suzipu"
 JIANPU_IMAGE_PATH = "./res/jianpu"
 FIVELINE_IMAGE_PATH = "./res/western_notation"

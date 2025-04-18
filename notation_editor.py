@@ -2,6 +2,7 @@ import copy
 import dataclasses
 import tkinter as tk
 
+from src.config import FULL_NOTATION_NAME
 from src.notation_editor_auxiliary import DisplayState, NotationState, NewSaveLoadFrame, EditMetadataButton, \
     InputNoteFrame, DisplayOptionsFrame, NotationOpenCvWindow
 from src.widgets_auxiliary import on_closing
@@ -14,10 +15,10 @@ class NotationMainWindow:
         self.display_state = DisplayState(self.frame)
         self.notation_state = NotationState(self.frame, self.display_state)
         self.display_state.plugin_name = self.notation_state.notation_type
-        self.opencv_window = NotationOpenCvWindow("Suzipu Musical Notation Editor - Notation Window", self.notation_state)
+        self.opencv_window = NotationOpenCvWindow(f"{FULL_NOTATION_NAME} - Notation Window", self.notation_state)
 
     def exec(self):
-        self.main_window.title("Suzipu Musical Notation Editor - Main Window")
+        self.main_window.title(f"{FULL_NOTATION_NAME} - Main Window")
         self.display_state.update_image(self.notation_state)
 
         new_save_load = NewSaveLoadFrame(self.frame, self.notation_state).get_frame()

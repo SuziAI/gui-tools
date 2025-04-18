@@ -5,7 +5,8 @@ import tkinter as tk
 import chinese_converter
 
 from src.auxiliary import open_file_as_tk_image
-from src.config import JIANPU_BUTTON_IMAGE, FIVELINE_BUTTON_IMAGE, SUZIPU_IMAGE_PATH, NOTATION_BUTTON_IMAGE
+from src.config import JIANPU_BUTTON_IMAGE, FIVELINE_BUTTON_IMAGE, SUZIPU_IMAGE_PATH, NOTATION_BUTTON_IMAGE, \
+    FULL_ANNOTATION_NAME
 from src.fingering import Fingering
 
 
@@ -773,7 +774,7 @@ class ModeSelectorFrame:
                 def execute_mode_display_window():
                     self.mode_info_is_active = True
                     custom_mode_window = tk.Toplevel()
-                    custom_mode_window.title("Chinese Musical Annotation Tool - Mode Information")
+                    custom_mode_window.title(f"{FULL_ANNOTATION_NAME} - Mode Information")
                     self.mode_display_frame = ModeDisplayFrame(custom_mode_window, self.mode_gong_lvlv, self.mode_final_note)
                     self.mode_display_frame.get_frame().pack()
                     self.mode_display_frame.update()

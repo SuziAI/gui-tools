@@ -16,7 +16,7 @@ from src.plugins.suzipu_lvlvpu_gongchepu.lvlvpu_intelligent_assistant import loa
 from src.plugins.suzipu_lvlvpu_gongchepu.notes_to_image import common_notation_to_jianpu, common_notation_to_staff, \
     notation_to_lvlvpu, NotationResources, write_to_musicxml
 from src.programstate import ProgramState
-from src.config import CHINESE_FONT_FILE, NO_KUISCIMA_ANNOTATIONS
+from src.config import CHINESE_FONT_FILE, NO_KUISCIMA_ANNOTATIONS, FULL_ANNOTATION_NAME
 from src.plugins.suzipu_lvlvpu_gongchepu.common import Symbol, ModeSelectorFrame
 
 EMPTY_ANNOTATION = {"pitch": None}
@@ -478,7 +478,7 @@ class NotationAnnotationFrame:
 
         def on_intelligent_assistant():
             intelligent_assistant_window = tk.Toplevel(self.frame)
-            intelligent_assistant_window.title("Chinese Musical Annotation Tool - Suzipu Intelligent Assistant")
+            intelligent_assistant_window.title(f"{FULL_ANNOTATION_NAME} - Suzipu Intelligent Assistant")
 
             canvas_frame = tk.LabelFrame(intelligent_assistant_window, text="KuiSCIMA Instances With Same Annotation")
             self.canvas = tk.Canvas(canvas_frame, relief="sunken", state="disabled")

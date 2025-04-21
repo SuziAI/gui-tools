@@ -6,7 +6,8 @@ JIANPU_IMAGE_PATH = "./res/jianpu"
 FIVELINE_IMAGE_PATH = "./res/western_notation"
 SUZIPU_NOTATION_IMAGE_PATH = "./res/suzipu_notation"
 
-CHINESE_FONT_FILE = "./res/Noto_Sans_SC/NotoSansSC-Regular.otf"
+CHINESE_FONT_FILE = "./res/fonts/HanaMinA.ttf"
+CHINESE_FONT_FALLBACK = "./res/fonts/HanaMinB.ttf"
 
 INVALID_MODE_IMAGE = "./res/invalid_mode.png"
 GO_INTO_ANNOTATION_MODE_IMAGE = "./res/go_into_annotation_mode.png"

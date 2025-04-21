@@ -11,7 +11,8 @@ from music21 import articulations
 from src.fingering import FingeringProperties, Fingering, fingering_to_lowest_note
 from src.plugins.suzipu_lvlvpu_gongchepu.common import GongcheMelodySymbol, GongdiaoModeList, SuzipuAdditionalSymbol, \
     suzipu_to_info
-from src.config import JIANPU_IMAGE_PATH, FIVELINE_IMAGE_PATH, CHINESE_FONT_FILE, SUZIPU_NOTATION_IMAGE_PATH
+from src.config import JIANPU_IMAGE_PATH, FIVELINE_IMAGE_PATH, CHINESE_FONT_FILE, SUZIPU_NOTATION_IMAGE_PATH, \
+    CHINESE_FONT_FALLBACK
 
 accidental_dictionary = {
             "None": None,
@@ -62,7 +63,22 @@ def load_font(font_size):
     font = font_manager.FontProperties(fname=CHINESE_FONT_FILE)
     file = font_manager.findfont(font)
     font = ImageFont.truetype(file, font_size)
-    return font
+
+    fallback_font = font_manager.FontProperties(fname=CHINESE_FONT_FALLBACK)
+    fallback_file = font_manager.findfont(fallback_font)
+    fallback_font = ImageFont.truetype(fallback_file, font_size)
+    return [font, fallback_font]
+
+
+def draw_with_fallback(text_draw, dimensions, text, fill, font):
+    bbox = font[0].getbbox(text)
+    _, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+    if h == 27:
+        text_draw.text((dimensions[0], dimensions[1] + 5), text, fill=fill, font=font[1])
+    else:
+        text_draw.text(dimensions, text, fill=fill, font=font[0])
+    return
 
 
 class NotationResources:
@@ -426,7 +442,7 @@ def common_notation_to_jianpu(font, image_dict, mode, music_list, lyrics_list, l
 
         if lyric is not None:
             text_draw = ImageDraw.Draw(whole_img)
-            text_draw.text((10, width*2), lyric, fill=(0, 0, 0), font=font)
+            draw_with_fallback(text_draw, (10, width*2), lyric, fill=(0, 0, 0), font=font)
 
         return whole_img
 
@@ -551,7 +567,7 @@ def common_notation_to_staff(font, image_dict, mode, music_list, lyrics_list, li
 
         if lyric is not None:
             text_draw = ImageDraw.Draw(whole_img)
-            text_draw.text((10, width + 120), lyric, fill=(0, 0, 0), font=font)
+            draw_with_fallback(text_draw, (10, width + 120), lyric, fill=(0, 0, 0), font=font)
 
         return whole_img
 
@@ -613,9 +629,9 @@ def _notation_to_textbased(font, notation_font, music_list, lyrics_list, note_to
         if note.isRest:
             if lyric is not None:
                 if is_vertical:
-                    text_draw.text((15, 0), lyric, fill=(0, 0, 0), font=font)
+                    draw_with_fallback(text_draw, (15, 0), lyric, fill=(0, 0, 0), font=font)
                 else:
-                    text_draw.text((10, width), lyric, fill=(0, 0, 0), font=font)
+                    draw_with_fallback(text_draw, (10, width), lyric, fill=(0, 0, 0), font=font)
         else:
             notation = note_to_textbased_function(note.original_pitch)
             if note.additional_symbol == SuzipuAdditionalSymbol.ADD_ZHE:  # lvlvpu ZHE_ZI
@@ -626,20 +642,20 @@ def _notation_to_textbased(font, notation_font, music_list, lyrics_list, note_to
 
             if is_vertical:
                 if len(notation) == 1:
-                    text_draw.text((85, 15), notation[0], fill=(0, 0, 0), font=notation_font)
+                    draw_with_fallback(text_draw, (85, 15), notation[0], fill=(0, 0, 0), font=notation_font)
                 else:
-                    text_draw.text((70, 15), notation[0], fill=(0, 0, 0), font=notation_font)
-                    text_draw.text((95, 15), notation[1], fill=(0, 0, 0), font=notation_font)
+                    draw_with_fallback(text_draw, (70, 15), notation[0], fill=(0, 0, 0), font=notation_font)
+                    draw_with_fallback(text_draw, (95, 15), notation[1], fill=(0, 0, 0), font=notation_font)
                 if lyric is not None:
-                    text_draw.text((15, 0), lyric, fill=(0, 0, 0), font=font)
+                    draw_with_fallback(text_draw, (15, 0), lyric, fill=(0, 0, 0), font=font)
             else:
                 if len(notation) == 1:
-                    text_draw.text((17, 30), notation[0], fill=(0, 0, 0), font=notation_font)
+                    draw_with_fallback(text_draw, (17, 30), notation[0], fill=(0, 0, 0), font=notation_font)
                 else:
-                    text_draw.text((17, 0), notation[0], fill=(0, 0, 0), font=notation_font)
-                    text_draw.text((17, 30), notation[1], fill=(0, 0, 0), font=notation_font)
+                    draw_with_fallback(text_draw, (17, 0), notation[0], fill=(0, 0, 0), font=notation_font)
+                    draw_with_fallback(text_draw, (17, 30), notation[1], fill=(0, 0, 0), font=notation_font)
                 if lyric is not None:
-                    text_draw.text((10, width), lyric, fill=(0, 0, 0), font=font)
+                    draw_with_fallback(text_draw, (10, width), lyric, fill=(0, 0, 0), font=font)
 
         return whole_img
 
@@ -703,18 +719,18 @@ def notation_to_custom(font, custom_notation_image_list, lyrics_list, line_break
         if note_img is None:
             if lyric is not None:
                 if is_vertical:
-                    text_draw.text((15, 0), lyric, fill=(0, 0, 0), font=font)
+                    draw_with_fallback(text_draw, (15, 0), lyric, fill=(0, 0, 0), font=font)
                 else:
-                    text_draw.text((10, width), lyric, fill=(0, 0, 0), font=font)
+                    draw_with_fallback(text_draw, (10, width), lyric, fill=(0, 0, 0), font=font)
         else:
             if is_vertical:
                 whole_img.paste(note_img, (85, 15))
                 if lyric is not None:
-                    text_draw.text((15, 0), lyric, fill=(0, 0, 0), font=font)
+                    draw_with_fallback(text_draw, (15, 0), lyric, fill=(0, 0, 0), font=font)
             else:
                 whole_img.paste(note_img, (17, 30))
                 if lyric is not None:
-                    text_draw.text((10, width), lyric, fill=(0, 0, 0), font=font)
+                    draw_with_fallback(text_draw, (10, width), lyric, fill=(0, 0, 0), font=font)
 
         return whole_img
 
@@ -816,7 +832,7 @@ def notation_to_suzipu(font, image_dict, music_list, lyrics_list, line_break_idx
                     whole_img.paste(image_dict[symbol], (80, 17))
                 if lyric is not None:
                     text_draw = ImageDraw.Draw(whole_img)
-                    text_draw.text((15, 0), lyric, fill=(0, 0, 0), font=font)
+                    draw_with_fallback(text_draw, (15, 0), lyric, fill=(0, 0, 0), font=font)
             else:
                 if original_pitch is not None and additional_symbol is not None:
                     whole_img.paste(image_dict[original_pitch], (17, 10))
@@ -827,7 +843,7 @@ def notation_to_suzipu(font, image_dict, music_list, lyrics_list, line_break_idx
                     whole_img.paste(image_dict[symbol], (17, 20))
                 if lyric is not None:
                     text_draw = ImageDraw.Draw(whole_img)
-                    text_draw.text((10, width), lyric, fill=(0, 0, 0), font=font)
+                    draw_with_fallback(text_draw, (10, width), lyric, fill=(0, 0, 0), font=font)
 
 
         return whole_img
@@ -978,14 +994,14 @@ def construct_metadata_image(title_font, text_font, title, mode, preface, image_
         offset = 0
         for idx, title_char in enumerate(title):
             offset = 80 * idx
-            text_draw.text((image_width - 80, offset), title_char, fill=(0, 0, 0), font=title_font)
+            draw_with_fallback(text_draw, (image_width - 80, offset), title_char, fill=(0, 0, 0), font=title_font)
 
         for idx, first_line_char in enumerate(text_lines[0]):
-            text_draw.text((image_width - 55, offset + 100 + 60*idx), first_line_char, fill=(0, 0, 0), font=text_font)
+            draw_with_fallback(text_draw, (image_width - 55, offset + 100 + 60*idx), first_line_char, fill=(0, 0, 0), font=text_font)
 
         for line_idx, line in enumerate(text_lines[1:]):
             for idx, character in enumerate(line):
-                text_draw.text((image_width - 120 - line_idx*70, 20+60*idx), character, fill=(0, 0, 0), font=text_font)
+                draw_with_fallback(text_draw, (image_width - 120 - line_idx*70, 20+60*idx), character, fill=(0, 0, 0), font=text_font)
 
     else:
         image_height = 160 + len(text_lines) * 70
@@ -994,12 +1010,23 @@ def construct_metadata_image(title_font, text_font, title, mode, preface, image_
 
         text_draw = ImageDraw.Draw(whole_image)
 
-        _, _, w, h = text_draw.textbbox((0, 0), title, font=title_font)
-        text_draw.text(((image_width - w) / 2, 0), title, fill=(0, 0, 0), font=title_font)
+        _, _, w, h = text_draw.textbbox((0, 0), title, font=title_font[0])
+
+        for idx, title_char in enumerate(title):
+            bbox = title_font[0].getbbox("好")
+            font_offset, _ = bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+            offset = font_offset * idx
+            draw_with_fallback(text_draw, ((image_width - w) / 2 + offset, 0), title_char, fill=(0, 0, 0), font=title_font)
 
         for line_idx, line in enumerate(text_lines):
-            _, _, w, h = text_draw.textbbox((0, 0), line, font=text_font)
-            text_draw.text(((image_width - w) / 2, 120 + line_idx * 70), line, fill=(0, 0, 0), font=text_font)
+            bbox = text_font[0].getbbox("好")
+            font_offset, _ = bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+            _, _, w, h = text_draw.textbbox((0, 0), line, font=text_font[0])
+            for idx, line_char in enumerate(line):
+                offset = font_offset * idx
+                draw_with_fallback(text_draw, ((image_width - w) / 2 + offset, 120 + line_idx * 70), line_char, fill=(0, 0, 0), font=text_font)
 
     return whole_image
 
@@ -1018,7 +1045,7 @@ def construct_fingering_image(font, image_dict, fingering: FingeringProperties):
     fingering_mark = fingering_mark.resize((50, 50))
 
     whole_image.paste(fingering_mark, (6 * 30, 20))
-    text_draw.text((0, 15), "（筒音作       ）", fill=(0, 0, 0), font=font)
+    draw_with_fallback(text_draw, (0, 15), "（筒音作       ）", fill=(0, 0, 0), font=font)
 
     return whole_image
 
@@ -1033,7 +1060,7 @@ def construct_transposition_image(font, image_dict, fingering):
     he_mark = he_mark.resize((50, 50))
 
     whole_image.paste(he_mark, (40, 20))
-    text_draw.text((0, 15), f"（       =  {fingering_to_lowest_note(fingering).pitch}）", fill=(0, 0, 0), font=font)
+    draw_with_fallback(text_draw, (0, 15), f"（       =  {fingering_to_lowest_note(fingering).pitch}）", fill=(0, 0, 0), font=font)
 
     return whole_image
 

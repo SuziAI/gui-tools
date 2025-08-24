@@ -18,6 +18,7 @@ def predict_text_from_images(image_list, progress, total_progress, update=lambda
 
         if prediction == "\x0c":
             prediction = " "
+        prediction = prediction.replace("\n", "")
         output += prediction
 
         new_progress = progress.get()/100 * total_progress
